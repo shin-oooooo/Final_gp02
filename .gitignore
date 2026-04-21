@@ -1,0 +1,48 @@
+# ── OS / Editor ──
+.DS_Store
+Thumbs.db
+desktop.ini
+__MACOSX/
+.vscode/
+.idea/
+
+# ── Python caches ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtualenvs ──
+.venv/
+venv/
+env/
+.conda/
+
+# ── Logs / runtime ──
+*.log
+*.tmp
+tmp/
+temp/
+
+# ── Local feedback / scratch ──
+_feedback_*.txt
+_feedback_*.json
+_naming_audit.txt
+_fb_py/
+
+# ── Secrets ──
+.env
+.env.*
+!.env.example
+*.env
+
+# ── Jupyter ──
+.ipynb_checkpoints/
+
+# ── Coverage ──
+.coverage
+htmlcov/
+coverage.xml

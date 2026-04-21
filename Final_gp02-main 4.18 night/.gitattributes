@@ -1,0 +1,8 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Kronos 默认 bundle（kronos-small + tokenizer-base）— 大文件走 Git LFS
+kronos_weights/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+
+# HF Docker entrypoint must be LF so Linux container can exec shebang
+scripts/hf_space_entrypoint.sh text eol=lf

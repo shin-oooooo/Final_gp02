@@ -1,0 +1,1720 @@
+/* ========================================================
+   AIE1902 Research Dashboard — Industrial Dark Theme
+   ======================================================== */
+
+/* ── FONTS ──────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/* ── CSS VARIABLES ──────────────────────────────────────── */
+:root {
+  --bg-root:   #09090e;
+  --bg-2:      #0e0e16;
+  --bg-3:      #13131e;
+  --bg-4:      #191926;
+  --bg-5:      #20202e;
+  --bg-6:      #282838;
+  --bdr:       #252535;
+  --bdr-mid:   #333348;
+  --bdr-hi:    #454560;
+  --tx-1:      #eeeef6;
+  --tx-2:      #a8a8c0;
+  --tx-3:      #606078;
+  --ac:        #4fc3f7;
+  --ac-dim:    #1e6e98;
+  --ac-glow:   rgba(79,195,247,.22);
+  --c-success: #4caf82;
+  --c-warn:    #e0913a;
+  --c-danger:  #e05555;
+  --c-info:    #4fc3f7;
+  --radius:    3px;
+  --radius-sm: 2px;
+  --shadow:    0 2px 12px rgba(0,0,0,.55);
+  --shadow-lg: 0 6px 28px rgba(0,0,0,.75);
+  --t: all 0.18s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── BASE ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg-root) !important;
+  color: var(--tx-1) !important;
+  font-family: 'Sora', system-ui, -apple-system, sans-serif !important;
+  font-size: 13.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 完整视口高度链 ──────────────────────────────────────────
+   Dash 在 body 和 .app-shell 之间插入了：
+     body > #react-entry-point > #_dash-app-content > .container-fluid(.app-shell)
+   每一层都必须 height:100% + overflow:hidden，否则子层的
+   height:100dvh 虽然数值正确，但祖先层会被内容撑高，
+   导致 grid 行高 = max-content 而非视口剩余高度。
+*/
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Dash 注入的两个 wrapper */
+#react-entry-point,
+#_dash-app-content {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Dash 4.x 渲染后 #_dash-app-content 可能不存在，中间会多一层 div */
+#react-entry-point > div {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+code, pre, .font-monospace, kbd, .mono {
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace !important;
+}
+
+/* ── CONTAINERS ──────────────────────────────────────────── */
+.container-fluid {
+  background: var(--bg-root);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.card, .dbc-card {
+  background-color: var(--bg-3) !important;
+  border-color: var(--bdr) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--tx-1) !important;
+}
+.card-header {
+  background-color: var(--bg-4) !important;
+  border-color: var(--bdr) !important;
+  color: var(--tx-1) !important;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.card-body  { background: transparent !important; }
+.card-footer { background: var(--bg-4) !important; border-color: var(--bdr) !important; }
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.border-lg-end { border-right: 1px solid var(--bdr) !important; }
+
+.ui-mode-radio .form-check {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 1rem;
+  margin-bottom: 0;
+}
+.ui-mode-radio .form-check-input { margin-top: 0; cursor: pointer; }
+.ui-mode-radio .form-check-label { cursor: pointer; color: var(--tx-2); font-size: 0.82rem; }
+
+.research-mode-card {
+  background: linear-gradient(145deg, var(--bg-3) 0%, rgba(79,195,247,.04) 100%) !important;
+}
+.research-mode-accordion .accordion-item {
+  background: var(--bg-2) !important;
+  border-color: var(--bdr) !important;
+}
+.research-mode-accordion .accordion-button {
+  background: var(--bg-4) !important;
+  color: var(--tx-1) !important;
+  font-size: 0.78rem;
+  padding: 0.45rem 0.65rem;
+}
+.research-mode-accordion .accordion-button:not(.collapsed) {
+  box-shadow: none;
+  color: var(--ac) !important;
+}
+.research-mode-accordion .accordion-body { padding: 0.5rem 0.65rem; }
+
+.sidebar-sliders {
+  background: var(--bg-2);
+  border-right: 1px solid var(--bdr);
+  padding: 1rem 1rem 2rem;
+  min-height: 100vh;
+  font-family: 'Sora', system-ui, sans-serif !important;
+}
+/* 侧栏参数分块 */
+.sidebar-param-section {
+  background: var(--bg-2);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem 0.8rem;
+  margin-bottom: 0.7rem;
+}
+.sidebar-section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--bdr-mid);
+  margin-bottom: 0.45rem;
+}
+.sidebar-params-subtitle {
+  font-family: 'Sora', system-ui, sans-serif !important;
+  letter-spacing: 0.03em;
+  color: var(--tx-1) !important;
+}
+.sidebar-sliders .form-label,
+.sidebar-sliders .form-check-label {
+  font-family: 'Sora', system-ui, sans-serif !important;
+}
+
+/* 侧栏参数面板：与 body 相同字体（覆盖 Bootstrap / CYBORG 默认） */
+.sidebar-sliders,
+.sidebar-params-settings,
+.sidebar-params-settings-card,
+.sidebar-param-section,
+.sidebar-param-section .form-label,
+.sidebar-param-section .form-check-label {
+  font-family: 'Sora', system-ui, sans-serif !important;
+}
+.sidebar-sliders .mono,
+.sidebar-params-settings .mono {
+  font-family: 'IBM Plex Mono', 'Fira Code', monospace !important;
+}
+.sidebar-param-section {
+  background: var(--bg-2);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem 0.85rem;
+  margin-bottom: 0.75rem;
+}
+.sidebar-section-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--bdr-mid);
+}
+.sidebar-section-stack > *:not(:last-child) {
+  margin-bottom: 0.4rem;
+}
+.sidebar-params-subtitle {
+  font-family: 'Sora', system-ui, sans-serif !important;
+  letter-spacing: 0.03em;
+}
+
+/* ── SLIDERS ──────────────────────────────────────────────── */
+.sidebar-sliders .rc-slider-rail   { background: #1c2430 !important; }
+.sidebar-sliders .rc-slider-track  { background: var(--ac) !important; }
+.sidebar-sliders .rc-slider-handle {
+  width: 14px !important;
+  height: 14px !important;
+  margin-top: -5px !important;
+  border: 1px solid var(--bdr-hi) !important;
+  background: var(--bg-2) !important;
+  box-shadow: none !important;
+}
+.sidebar-sliders .rc-slider-handle:hover {
+  border-color: var(--tx-3) !important;
+  box-shadow: none !important;
+}
+.sidebar-sliders .rc-slider-mark-text { color: var(--tx-2) !important; font-size: 10px; }
+.sidebar-sliders .rc-slider-rail { height: 6px !important; border-radius: 3px !important; }
+.sidebar-sliders .rc-slider-track { height: 6px !important; border-radius: 3px !important; }
+
+/* Hide Dash slider tooltip popovers (values still visible via marks) */
+.rc-slider-tooltip,
+.dash-slider .rc-slider-tooltip { display: none !important; }
+
+/* dcc.Slider (Plotly Dash) */
+.dash-slider .rc-slider-rail         { background: #1c2430 !important; }
+.dash-slider .rc-slider-track        { background: var(--ac) !important; }
+.dash-slider .rc-slider-handle       { border-color: var(--ac) !important; background: var(--bg-2) !important; }
+.dash-slider .rc-slider-mark-text    { color: var(--tx-2) !important; font-size: 10px !important; }
+
+/* ── TABS ────────────────────────────────────────────────── */
+.custom-tabs { border-bottom: 2px solid var(--bdr-mid) !important; background: transparent !important; }
+.custom-tab  {
+  background: var(--bg-3) !important;
+  border: 1px solid var(--bdr) !important;
+  color: var(--tx-2) !important;
+  border-radius: var(--radius) var(--radius) 0 0 !important;
+  padding: 8px 18px !important;
+  font-size: 0.82rem !important;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: var(--t);
+}
+.custom-tab:hover { color: var(--ac) !important; border-color: var(--ac-dim) !important; }
+.custom-tab--selected {
+  background: var(--bg-5) !important;
+  color: var(--ac) !important;
+  border-top: 2px solid var(--ac) !important;
+  font-weight: 600;
+}
+
+/* ── BUTTONS ──────────────────────────────────────────────── */
+.btn-primary {
+  background: var(--ac) !important;
+  border-color: var(--ac) !important;
+  color: #000 !important;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.btn-primary:hover { filter: brightness(1.15); }
+.btn-secondary { background: var(--bg-5) !important; border-color: var(--bdr-mid) !important; color: var(--tx-1) !important; }
+.btn-outline-info { border-color: var(--ac) !important; color: var(--ac) !important; }
+.btn-outline-info:hover { background: var(--ac-glow) !important; }
+.btn-link { color: var(--ac) !important; }
+
+/* ── ALERTS ──────────────────────────────────────────────── */
+.alert {
+  border-radius: var(--radius) !important;
+  border-left: 3px solid;
+  font-size: 0.82rem;
+}
+.alert-info    { background: rgba(79,195,247,.08) !important; border-color: var(--c-info) !important;    color: var(--tx-1) !important; }
+.alert-warning { background: rgba(224,145,58,.10) !important; border-color: var(--c-warn) !important;    color: var(--tx-1) !important; }
+.alert-danger  { background: rgba(224,85,85,.10)  !important; border-color: var(--c-danger) !important; color: var(--tx-1) !important; }
+.alert-success { background: rgba(76,175,130,.10) !important; border-color: var(--c-success) !important; color: var(--tx-1) !important; }
+.alert-secondary { background: rgba(255,255,255,.04) !important; border-color: var(--bdr-mid) !important; color: var(--tx-2) !important; }
+
+/* ── DEFENSE REASON TAGS (black highlight) ───────────────── */
+.defense-reason-tag {
+  background: #000 !important;
+  border: 1px solid var(--bdr-hi) !important;
+  border-radius: var(--radius) !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.defense-reason-tag .reason-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+  color: var(--tx-2);
+}
+.defense-reason-tag.warn  { border-color: var(--c-warn) !important; }
+.defense-reason-tag.danger{ border-color: var(--c-danger) !important; }
+.defense-reason-tag.success{ border-color: var(--c-success) !important; }
+.defense-reason-tag.warn  .reason-body { color: var(--c-warn) !important; font-weight: 700; }
+.defense-reason-tag.danger .reason-body { color: var(--c-danger) !important; font-weight: 700; }
+.defense-reason-tag.success .reason-body { color: var(--c-success) !important; font-weight: 700; }
+
+/* 侧栏 FigX：条件标签与 Plotly 图垂直留白 */
+.sb2-figx-reason-below {
+  min-height: 2.75rem;
+  margin-top: 0.5rem;
+}
+
+/* ── BADGES ──────────────────────────────────────────────── */
+.badge { font-size: 0.72rem !important; letter-spacing: 0.04em; }
+
+/* ── TABLES ──────────────────────────────────────────────── */
+.table {
+  color: var(--tx-1) !important;
+  border-color: var(--bdr) !important;
+  font-size: 0.78rem;
+}
+.table-bordered th, .table-bordered td { border-color: var(--bdr) !important; }
+.table-hover tbody tr:hover { background: var(--bg-4) !important; }
+th { color: var(--tx-2) !important; font-weight: 600; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.06em; }
+
+/* ── DROPDOWNS ───────────────────────────────────────────── */
+.Select-control, .VirtualizedSelectOption, .VirtualizedSelectFocusedOption {
+  background: var(--bg-4) !important;
+  border-color: var(--bdr-mid) !important;
+  color: var(--tx-1) !important;
+}
+.Select-menu-outer { background: var(--bg-4) !important; border-color: var(--bdr-mid) !important; }
+.Select-option.is-focused { background: var(--bg-5) !important; }
+
+/* ── INPUTS / TEXTAREA ───────────────────────────────────── */
+input, textarea, .form-control {
+  background: var(--bg-4) !important;
+  border-color: var(--bdr-mid) !important;
+  color: var(--tx-1) !important;
+  border-radius: var(--radius-sm) !important;
+}
+input:focus, textarea:focus, .form-control:focus {
+  border-color: var(--ac) !important;
+  box-shadow: 0 0 0 3px var(--ac-glow) !important;
+}
+
+/* ── PLOTLY CHARTS ───────────────────────────────────────── */
+.js-plotly-plot .plot-container { border-radius: var(--radius); }
+.js-plotly-plot .plotly .bg { fill: var(--bg-3) !important; }
+.js-plotly-plot .modebar { background: transparent !important; }
+.js-plotly-plot .modebar-btn path { fill: var(--tx-3) !important; }
+.js-plotly-plot .modebar-btn:hover path { fill: var(--ac) !important; }
+
+/* ── LOADING OVERLAY ──────────────────────────────────────── */
+/* 注：Dash 4 的 ``dcc.Loading`` 用 ``.dash-spinner`` 容器，样式详见 LOADING
+ * WRAPPER 那一节；这里的 `._dash-loading-callback` 仅为向后兼容 Dash 2 的
+ * 全局回调遮罩（`app.config['suppress_callback_exceptions']=True` 时有少量
+ * 路径仍使用）。若将来确认不再需要，可整块删除。 */
+._dash-loading-callback {
+  background: rgba(9,9,14,.55) !important;
+}
+._dash-loading-callback::after {
+  border-top-color: var(--ac) !important;
+}
+
+/* Intro column + loading hint card (dcc.Loading custom_spinner) */
+.project-intro-column {
+  align-self: flex-start;
+}
+@media (min-width: 992px) {
+  .project-intro-column {
+    position: sticky;
+    top: 0.75rem;
+  }
+}
+.project-intro-body {
+  max-height: min(78vh, 920px);
+  overflow-y: auto;
+}
+.project-intro-card .card-body {
+  padding-top: 0.65rem;
+  padding-bottom: 0.85rem;
+}
+.sidebar-overview-body {
+  max-height: min(78vh, 920px);
+  overflow-y: auto;
+}
+
+/* 侧栏2 — 防御策略介绍：可点击条（书本图标 + 青色下划线标题），展开后为原三级说明卡片 */
+.sb2-def-intro-wrap {
+  width: 100%;
+}
+.sb2-def-intro-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-3);
+  border: 1px solid var(--bdr-mid, var(--bdr));
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.sb2-def-intro-head:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+.sb2-def-intro-head:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.55);
+  outline-offset: 2px;
+}
+.sb2-def-intro-head__icon {
+  color: #38bdf8;
+  font-size: 1.08rem;
+  flex-shrink: 0;
+}
+.sb2-def-intro-head__title {
+  color: #22d3ee;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  line-height: 1.35;
+}
+
+/* 侧栏2 — 防御策略介绍：与「防御策略参数」卡顶栏风格一致的静态面板 */
+.sb2-def-intro-panel {
+  overflow: hidden;
+}
+.sb2-def-intro-panel__head {
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--bdr-mid);
+  padding: 0.45rem 0.75rem;
+}
+.sb2-def-intro-panel__title {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--tx-2);
+  margin: 0;
+}
+.sb2-def-intro-panel__body {
+  background: transparent;
+}
+
+/* 侧栏1 — 阈值条 + 右侧数值输入 */
+.sidebar-rail-input-row {
+  align-items: center !important;
+}
+.sidebar-rail-col .defense-rgy-wrap,
+.sidebar-rail-col .defense-switch-dial {
+  width: 100%;
+}
+.sidebar-rail-inputs-col .sidebar-rail-inputs .form-control {
+  min-width: 0;
+}
+
+/* τ_L2/L1：与其它阈值条同列宽；右侧数值框上下略增高 */
+.sidebar-rail-input-row.sidebar-rail-input-row--tau-l2-l1 {
+  align-items: stretch !important;
+}
+.sidebar-rail-input-row--tau-l2-l1 .sidebar-rail-col--tau,
+.sidebar-rail-input-row--tau-l2-l1 .sidebar-rail-col--tau .defense-switch-dial,
+.sidebar-rail-input-row--tau-l2-l1 .sidebar-rail-col--tau .defense-rgy-wrap {
+  width: 100%;
+  min-width: 0;
+}
+.sidebar-tau-l2l1-inputs {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+.sidebar-tau-l2l1-inputs .sidebar-tau-l2l1-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.sidebar-tau-l2l1-input.form-control,
+.sidebar-tau-l2l1-input.form-control:focus {
+  width: 100% !important;
+  min-height: 2rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+/* 侧栏参数：区块子标题 + 问号说明卡 */
+.sidebar-block-head {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+  color: var(--tx-1) !important;
+}
+.param-help-wrap {
+  position: relative;
+}
+.param-help-wrap .sidebar-param-title {
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  color: var(--tx-2) !important;
+  line-height: 1.35 !important;
+}
+.param-help-trigger {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 1px solid var(--bdr-mid, var(--bdr));
+  font-size: 0.62rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: var(--tx-2);
+  user-select: none;
+  line-height: 1;
+}
+.param-help-trigger:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: var(--tx-1);
+}
+.param-help-card {
+  position: fixed;
+  z-index: 12000;
+  min-width: 260px;
+  max-width: min(92vw, 440px);
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-3);
+  border: 1px solid var(--bdr-mid, var(--bdr));
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  max-height: min(60vh, 360px);
+  overflow: auto;
+}
+.param-help-card.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.param-help-card-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tx-1);
+  margin-bottom: 0.15rem;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.param-help-card-body {
+  line-height: 1.55;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.sidebar-block-head-wrap .sidebar-block-head {
+  margin-bottom: 0;
+}
+.sidebar-param-aux {
+  color: var(--tx-3) !important;
+}
+
+.app-shell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  /* 祖先链已全部 height:100%，此处用 100% 继承，不用 dvh 避免缩放冲突 */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell > .row.app-body-row {
+  /* basis 0%：避免 flex-basis:auto 按内容高度卡住，三栏无法获得固定视口剩余高度 */
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 顶栏：与 container 同宽（非 fixed），下缘与三列顶缘无缝衔接 */
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex: 0 0 auto;
+  width: 100%;
+  margin: 0;
+  background: var(--bg-root);
+  border-bottom: 1px solid var(--bdr);
+  box-shadow: none;
+  padding: 0;   /* 内边距交给 inner 各单元格处理，使列与下方三栏对齐 */
+}
+.app-topbar-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr);
+  gap: 0;
+  /* stretch：第三列占满行高，才能把五个主 Tab 压到顶栏下缘 */
+  align-items: stretch;
+  max-width: 100%;
+}
+/* 顶栏每个单元格内边距与下方列对齐 */
+.app-topbar-cell {
+  min-width: 0;
+  padding: 0.45rem 0.6rem 0;
+  border-right: 1px solid var(--bdr);
+}
+.app-topbar-cell:last-child {
+  border-right: none;
+}
+.app-topbar-title {
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+.app-topbar-cell.app-topbar-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+}
+.app-topbar-cell.app-topbar-main > div {
+  width: 100%;
+  margin-top: auto;
+}
+.app-topbar-left-toolbar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.55rem 0.75rem;
+  width: 100%;
+}
+.app-topbar-actions {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+.app-topbar-actions.app-topbar-actions--stacked {
+  flex-direction: column;
+  align-items: flex-start;   /* 让按钮以自身内容宽度为准，不被列宽拉伸 */
+  gap: 0.3rem;
+  min-width: 0;
+  width: fit-content;        /* 容器宽度收缩到最宽子元素 */
+  max-width: 10rem;          /* 不超过 10rem，防止撑开顶栏 */
+  margin-left: auto;         /* 推到第一列右缘 */
+}
+.app-btn-run-compact {
+  /* 不设 width，让按钮按文字内容收缩 */
+  width: auto !important;
+  white-space: nowrap;
+}
+/* 超时兜底：pipeline 180s 内未回写 last-snap / pipeline-render-ctx 时，
+ * clientside 给按钮加上该 class → 闪一下橙色边 + 震动提示，4s 后自撤。 */
+.app-btn-run-compact.app-btn-run-timeout {
+  box-shadow: 0 0 0 2px var(--c-warn, #f5a524) inset !important;
+  animation: appBtnRunTimeout 0.35s ease-in-out 2;
+}
+@keyframes appBtnRunTimeout {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-2px); }
+  75%      { transform: translateX(2px); }
+}
+.topbar-reasons-container {
+  background: var(--bg-2);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.app-kronos-btn {
+  max-width: 10rem;
+  font-size: 0.68rem !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  text-align: left !important;
+}
+
+/* 投资 / 研究 + 中 / EN：两组按钮上下纵向堆叠 */
+.app-topbar-mode-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  align-items: flex-start;
+}
+.ui-mode-segment {
+  display: inline-flex;
+  flex-direction: row;
+  border: 1px solid var(--bdr-mid);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-3);
+}
+.ui-mode-seg-btn {
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0.28rem 0.85rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  color: var(--tx-2) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.ui-mode-seg-btn + .ui-mode-seg-btn {
+  border-left: 1px solid var(--bdr-mid) !important;
+  border-top: none !important;
+}
+.ui-mode-seg-btn.active {
+  background: linear-gradient(180deg, rgba(79, 195, 247, 0.35) 0%, rgba(30, 110, 152, 0.55) 100%) !important;
+  color: var(--tx-1) !important;
+}
+
+/* 主栏分页：独占主栏格，与下方主栏同宽对齐；浏览器标签条样式 */
+.main-tab-segment {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0;
+  min-width: 0;
+  padding: 0 0.1rem;
+  border-bottom: 1px solid var(--bdr-mid);
+  margin-bottom: 0;
+}
+.main-tab-seg-btn {
+  border: 1px solid var(--bdr-mid) !important;
+  border-bottom: none !important;
+  border-radius: 8px 8px 0 0 !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  padding: 0.52rem 0.85rem 0.55rem !important;
+  line-height: 1.3 !important;
+  margin-right: 3px;
+  color: var(--tx-2) !important;
+  background: var(--bg-4) !important;
+  box-shadow: none !important;
+}
+.main-tab-seg-btn.active {
+  border-color: rgba(79, 195, 247, 0.45) !important;
+  color: var(--tx-1) !important;
+  background: var(--bg-3) !important;
+  position: relative;
+  z-index: 1;
+  margin-bottom: -1px;
+  padding-bottom: calc(0.48rem + 1px) !important;
+  box-shadow: 0 -1px 0 0 var(--bg-3) inset !important;
+}
+
+/* Bootstrap .col-* 在 grid 父级中高度不自动拉伸
+   grid align-items:stretch 已让格子填满行高，但 Bootstrap 的 flex:0 0 auto
+   让 .col 自身按内容决定高度；需要强制它撑满格子 */
+.dashboard-three-col-row.app-body-row > [class*="col"] {
+  height: 100% !important;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* 覆盖 Bootstrap flex shorthand */
+  flex: none !important;
+}
+
+/* 三栏：1 : 2 : 2；占满顶栏以下视口；各列独立纵向滚动；无列间间距（Cursor 风格紧凑布局） */
+.dashboard-three-col-row.app-body-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr);
+  /* 单行占满 flex 分给本行的剩余高度，否则 auto 行高随内容无限增高、列内不出现滚动条 */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  align-content: stretch;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 0;
+  padding-top: 0;
+}
+.dashboard-three-col-row.row.app-body-row.sidebar1-is-collapsed {
+  grid-template-columns: minmax(2.75rem, 2.75rem) minmax(0, 2fr) minmax(0, 2fr);
+}
+.sidebar1-toggle-strip {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.2rem 0 0.35rem;
+}
+.sidebar1-col--collapsed .sidebar1-toggle-strip {
+  flex: 1 1 auto;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 0.5rem;
+}
+.sidebar1-col--collapsed .sidebar1-scroll-inner {
+  display: none !important;
+}
+.sidebar1-toggle-btn {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  padding: 0.15rem 0.35rem !important;
+  line-height: 1.1 !important;
+}
+.dashboard-three-col-row > .dash-three-col {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0;
+  min-height: 0;
+  height: 100% !important;
+  max-height: 100%;
+  align-self: stretch;
+  overflow: hidden;
+}
+/* ── 三列容器：flex column，撑满格子高度，内部独立滚动 ─────── */
+.sidebar1-col,
+.sidebar2-col,
+.main-dashboard-col {
+  /* 继承 grid 格子的 100% 高度 */
+  height: 100% !important;
+  max-height: 100%;
+  min-height: 0;
+  position: relative !important;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-root);
+  /* overflow:hidden 封住列，阻止内容溢出撑高 grid 行 */
+  overflow: hidden;
+  padding: 0.5rem 0.6rem;
+}
+
+.sidebar1-col,
+.sidebar2-col {
+  border-right: 1px solid var(--bdr);
+}
+
+/* ── 滚动视口：三栏各自独立滚动 ─────────────────────────────
+   flex:1 1 0% + min-height:0 是关键：
+   - flex:1 让它填满 flex 容器（列）的剩余高度
+   - 0% basis + min-height:0 让 flex 不再用内容撑高自己
+   - overflow-y:auto 在有限高度内激活滚动条
+*/
+.sidebar1-scroll-inner,
+.sidebar2-scroll-inner,
+.main-scroll-clip {
+  flex: 1 1 0%;
+  min-height: 200px;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Windows Chrome/Edge：滚动条宽 6px，不用 scrollbar-gutter 避免挤内容 */
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 150, 0.6) rgba(18, 18, 28, 0.5);
+}
+
+/* Dash Loading wrapper：撑满主栏，避免回调触发时 dash-spinner 把 children 视觉
+ * 收窄导致主栏出现“半屏塌陷”。关键点：
+ *   1. #loading-main 占据滚动容器的全部高度；
+ *   2. 其下一级 div（Dash 运行时生成的 spinner/children 壳层）同样 100% 高；
+ *   3. 即便 children 初次为空，也为后续 tabs 预留最小高度。
+ */
+.main-dashboard-col #loading-main {
+  flex: 1 1 auto;
+  min-height: 100%;
+  height: 100%;
+  position: relative;
+  display: block;
+}
+.main-dashboard-col #loading-main > div:not(.dash-spinner) {
+  min-height: 100%;
+  height: 100%;
+}
+.main-dashboard-col .main-loading-parent {
+  min-height: 100%;
+}
+.main-dashboard-col #main-panels-root {
+  min-height: 320px;
+}
+/* dcc.Loading 在回调运行时会给子树叠一层 overlay_style——这里确保 overlay 以绝对
+ * 定位浮在 children 之上，而不是替换 children。 */
+.main-dashboard-col #loading-main .dash-spinner {
+  position: absolute !important;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.main-tab-panel {
+  min-height: 1px;
+}
+
+/* ── WebKit 细滚动条（Windows Chrome/Edge）─────────────────
+   6px 宽，轨道透明，拇指半透明，悬停时高亮青色
+   不用 border 技巧，避免 Windows 渲染异常
+*/
+.sidebar1-scroll-inner::-webkit-scrollbar,
+.sidebar2-scroll-inner::-webkit-scrollbar,
+.main-scroll-clip::-webkit-scrollbar          { width: 6px; height: 6px; }
+
+.sidebar1-scroll-inner::-webkit-scrollbar-track,
+.sidebar2-scroll-inner::-webkit-scrollbar-track,
+.main-scroll-clip::-webkit-scrollbar-track    { background: transparent; }
+
+.sidebar1-scroll-inner::-webkit-scrollbar-thumb,
+.sidebar2-scroll-inner::-webkit-scrollbar-thumb,
+.main-scroll-clip::-webkit-scrollbar-thumb    {
+  background: rgba(100, 100, 135, 0.55);
+  border-radius: 3px;
+}
+
+.sidebar1-scroll-inner::-webkit-scrollbar-thumb:hover,
+.sidebar2-scroll-inner::-webkit-scrollbar-thumb:hover,
+.main-scroll-clip::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 195, 247, 0.5);
+}
+
+.sidebar-params-subtitle {
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em;
+  color: var(--tx-1) !important;
+}
+
+/* 参数卡内「防御策略参数」：降为区块子标题（弱于原 sidebar-params-subtitle） */
+.sidebar-params-section-head {
+  font-size: 0.78rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em;
+  color: var(--tx-2) !important;
+}
+
+/* 参数标题与子标题：统一字号/颜色，且应位于颜色条上方 */
+.sidebar-param-title {
+  color: var(--tx-2) !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.25rem !important;
+}
+.sidebar-param-subtitle {
+  color: var(--tx-3) !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem !important;
+}
+
+/* rail 尺寸统一 */
+.defense-neon-rail .defense-rgy-track { width: 100%; }
+.defense-rgy-wrap { width: 100%; }
+
+/* L0/L1/L2：每段色块居中 */
+.defense-rgy-track--labeled .defense-rgy-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.defense-zone-mid {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 0 10px rgba(0,0,0,0.78), 0 1px 2px rgba(0,0,0,0.95);
+  pointer-events: none;
+}
+
+/* rail 下方两行：数字行 + 变量行（统一样式与布局） */
+.defense-axis-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.70rem;
+  color: var(--tx-3);
+}
+.defense-axis-num--cur {
+  color: var(--tx-1);
+  font-weight: 700;
+}
+
+/* τ_L2 / τ_L1：标注随白线位置，近距离由 JS 施加轻微水平偏移 */
+.defense-tau-anno-layer {
+  position: relative;
+  min-height: 2.65rem;
+  margin-top: 4px;
+}
+.defense-tau-axis-0,
+.defense-tau-axis-1 {
+  position: absolute;
+  bottom: 0;
+  font-size: 0.70rem;
+  color: var(--tx-3);
+  pointer-events: none;
+}
+.defense-tau-axis-0 {
+  left: 0;
+}
+.defense-tau-axis-1 {
+  right: 0;
+}
+.defense-tau-anno {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  min-width: 2.8rem;
+}
+.defense-tau-anno-num {
+  font-size: 0.70rem;
+  color: var(--tx-1);
+  font-weight: 700;
+  line-height: 1.15;
+}
+.defense-tau-anno-var {
+  margin-top: 1px;
+  font-size: 0.70rem;
+  color: var(--tx-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: 'Sora', system-ui, -apple-system, sans-serif !important;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.defense-var-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 1px;
+  font-size: 0.70rem;
+  color: var(--tx-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.defense-axis-var {
+  opacity: 0.95;
+  font-family: 'Sora', system-ui, -apple-system, sans-serif !important;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+/*
+ * 防御参数卡 — Dash 3+ / dcc 新实现：Radix，类名为 .dash-slider-root / .dash-slider-thumb /
+ * .dash-slider-track / .dash-slider-range（不再有 .rc-slider-*）。须压过 dcc 内联默认里的
+ * var(--Dash-Fill-Interactive-Strong) 紫色拇指。
+ */
+.card.defense-params-sliders .dash-slider-root {
+  --radix-slider-thumb-width: 4px !important;
+}
+.card.defense-params-sliders .dash-slider-root .dash-slider-thumb {
+  width: 4px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  min-width: 4px !important;
+  border-radius: 1px !important;
+  border: none !important;
+  background: #f4f4ff !important;
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.95),
+    0 0 22px rgba(255, 255, 255, 0.35),
+    0 0 6px rgba(255, 255, 255, 0.55) !important;
+  transform: none !important;
+}
+.card.defense-params-sliders .dash-slider-root .dash-slider-thumb:hover,
+.card.defense-params-sliders .dash-slider-root .dash-slider-thumb:focus {
+  transform: none !important;
+  outline: none !important;
+  box-shadow:
+    0 0 14px rgba(255, 255, 255, 0.98),
+    0 0 28px rgba(255, 255, 255, 0.42) !important;
+}
+.card.defense-params-sliders .dash-slider-root .dash-slider-track {
+  height: 8px !important;
+  border-radius: 4px !important;
+  background: linear-gradient(180deg, #14141c 0%, #1a1f2a 100%) !important;
+  border: 1px solid var(--bdr-mid) !important;
+}
+.card.defense-params-sliders .dash-slider-root .dash-slider-range {
+  border-radius: 2px !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+.card.defense-params-sliders .dash-slider-root .dash-slider-mark {
+  color: var(--tx-3) !important;
+  font-size: 10px !important;
+}
+.card.defense-params-sliders .dash-slider-tooltip {
+  display: none !important;
+}
+
+.defense-rgy-zone-lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--tx-1);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+}
+
+/* 三色条可拖分界：宽命中区内的白竖线 */
+.defense-tau-drag-line-inner {
+  flex: 0 0 3px;
+  width: 3px;
+  height: 100%;
+  min-height: 22px;
+  align-self: stretch;
+}
+.defense-tau-drag:hover .defense-tau-drag-line-inner {
+  filter: brightness(1.15);
+}
+
+.defense-single-drag-line-inner {
+  flex: 0 0 3px;
+  width: 3px;
+  height: 100%;
+  min-height: 22px;
+  align-self: stretch;
+}
+.defense-twozone-badges {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+  pointer-events: none;
+  z-index: 3;
+}
+.defense-zone-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 0 10px rgba(0,0,0,0.75);
+  opacity: 0.9;
+}
+
+.p2-consistency-row {
+  min-height: 0;
+}
+.p2-jsd-merge-col {
+  min-width: 0;
+}
+.p2-jsd-cred-card .card-body {
+  overflow-x: auto;
+}
+.p2-consistency-gauge-col {
+  min-width: 0;
+}
+
+/* Phase 2 — enlarged traffic lights + data card typography */
+.p2-traffic-badge-lg {
+  font-size: 1.08rem !important;
+  padding: 0.55em 1.15em !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em;
+}
+.p2-traffic-section-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.p2-traffic-detail {
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.p2-jsd-data-md {
+  font-size: 0.92rem;
+}
+@media (min-width: 992px) {
+  .p2-traffic-badge-lg {
+    font-size: 1.18rem !important;
+    padding: 0.6em 1.25em !important;
+  }
+}
+
+.dash-loading-intro-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.6rem;
+  max-width: min(92vw, 520px);
+}
+.loading-dash-hint-card {
+  width: 100%;
+}
+.loading-dash-hint-card .card-body p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: var(--bdr-hi); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ac-dim); }
+
+/* ── P1 DIAGNOSTIC CARDS ─────────────────────────────────── */
+.bg-danger.bg-opacity-10  { background: rgba(224,85,85,.10)  !important; }
+.bg-warning.bg-opacity-10 { background: rgba(224,145,58,.10) !important; }
+
+/* ── FORM LABELS ─────────────────────────────────────────── */
+label.form-label, .dbc-label {
+  color: var(--tx-2) !important;
+  font-size: 0.78rem !important;
+  margin-bottom: 2px !important;
+}
+
+/* ── HR DIVIDER ──────────────────────────────────────────── */
+hr { border-color: var(--bdr) !important; opacity: 1; }
+
+/* ── P0–P3 文档区：标题略小、正文略大 ──────────────────── */
+.phase-doc-scope .phase-card-header-title {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  line-height: 1.35 !important;
+}
+.phase-doc-scope .phase-analysis-toggle {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+}
+.phase-doc-scope .phase-doc-body,
+.phase-doc-scope .phase-doc-body p,
+.phase-doc-scope .phase-doc-body li {
+  font-size: 0.97rem !important;
+  line-height: 1.65 !important;
+}
+.phase-doc-scope .phase-doc-body h1,
+.phase-doc-scope .phase-doc-body h2 { font-size: 0.93rem !important; font-weight: 600 !important; }
+.phase-doc-scope .phase-doc-body h3,
+.phase-doc-scope .phase-doc-body h4 { font-size: 0.86rem !important; font-weight: 600 !important; }
+.phase-doc-scope .phase-doc-body h5,
+.phase-doc-scope .phase-doc-body h6 { font-size: 0.80rem !important; font-weight: 600 !important; }
+.phase-doc-scope .phase-doc-body table { font-size: 0.90rem !important; }
+
+/* ── P0 资产树 + 细长卡片 ───────────────────────────────── */
+.p0-asset-tree { max-height: 440px; overflow-y: auto; padding-right: 4px; }
+.p0-tree-cat {
+  border-bottom: 1px solid var(--bdr);
+  padding-bottom: 4px;
+}
+.p0-slim-card {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--bdr);
+  background: var(--bg-4);
+  overflow: hidden;
+  align-items: stretch;
+  min-height: 52px;
+}
+.p0-slim-bar { width: 4px; flex-shrink: 0; }
+.p0-slim-body { padding: 6px 10px; min-width: 0; }
+.p0-w-input {
+  max-width: 100px !important;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  height: 28px !important;
+}
+
+/* P0: clickable row (no cyan “electric” look); match sidebar buttons */
+.p0-slim-row-hit.btn-link {
+  color: var(--tx-1) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.p0-slim-row-hit.btn-link:hover,
+.p0-slim-row-hit.btn-link:focus {
+  color: var(--tx-1) !important;
+  background: rgba(255,255,255,.04) !important;
+  text-decoration: none !important;
+}
+.p0-diag-pill { white-space: normal !important; text-align: left; max-width: 100%; }
+
+/* P0 pie weight slider */
+.p0-weight-panel .rc-slider-handle {
+  width: 12px !important;
+  height: 12px !important;
+  margin-top: -5px !important;
+}
+
+/* ── 侧边栏：防御策略卡 + 红黄绿灯 + τ 阈值示意条 ───────── */
+.sidebar-policy-card.card {
+  background: var(--bg-3) !important;
+  border-color: var(--bdr-mid) !important;
+}
+.sidebar-policy-card .card-header {
+  background: var(--bg-4) !important;
+  border-bottom: 1px solid var(--bdr) !important;
+}
+.defense-traffic {
+  border-left: 4px solid transparent !important;
+  border-radius: var(--radius-sm) !important;
+}
+.defense-traffic-l2 { border-left-color: var(--c-danger) !important; }
+.defense-traffic-l1 { border-left-color: var(--c-warn) !important; }
+.defense-traffic-l0 { border-left-color: var(--c-success) !important; }
+.defense-anno-md p { margin-bottom: 0.35rem !important; }
+.defense-anno-md p:last-child { margin-bottom: 0 !important; }
+.defense-param-hint { line-height: 1.45 !important; color: var(--tx-2) !important; }
+
+.defense-switch-dial .defense-dial-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.defense-dial-cap { flex: 0 0 auto; font-size: 0.72rem !important; }
+.defense-dial-bar {
+  flex: 1 1 140px;
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bdr-mid);
+  min-height: 36px;
+}
+.defense-dial-bar-5 {
+  display: flex;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bdr-mid);
+  min-height: 34px;
+}
+.defense-dial-bar-5 .defense-dial-seg {
+  flex: 1;
+  font-size: 0.62rem !important;
+  padding: 4px 1px !important;
+}
+.defense-dial-seg {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 2px;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  color: var(--tx-1);
+}
+.defense-dial-seg-a { background: rgba(76, 175, 130, 0.22); }
+.defense-dial-seg-b { background: rgba(224, 145, 58, 0.22); }
+.defense-dial-seg-c { background: rgba(224, 85, 85, 0.22); }
+.defense-dial-chip { display: block; text-align: center; }
+.defense-dial-seg .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.65rem; }
+
+/* 阈值条：色块基础（不被 .defense-dial-seg 的 flex:1 覆盖） */
+.defense-rgy-fill-danger,
+.defense-rgy-fill-warn,
+.defense-rgy-fill-success {
+  min-width: 0;
+  flex-shrink: 1;
+  /* flex 由 inline style 设定，此处不写 flex: 1 */
+}
+.defense-rgy-fill-danger { background: rgba(224, 85, 85, 0.15) !important; box-shadow: inset 0 0 28px rgba(224,85,85,.22); }
+.defense-rgy-fill-warn   { background: rgba(224, 145, 58, 0.15) !important; box-shadow: inset 0 0 28px rgba(224,145,58,.2); }
+.defense-rgy-fill-success{ background: rgba(76, 175, 130, 0.15) !important; box-shadow: inset 0 0 28px rgba(76,175,130,.2); }
+
+/* 可信度轴：与上方 defense-traffic / Alert 同色（--c-danger / --c-warn / --c-success） */
+.defense-rgy-rail { margin-bottom: 0.15rem; }
+.defense-rgy-axis { color: var(--tx-3); }
+.defense-rgy-lbl { font-weight: 600; color: var(--tx-1); font-size: 0.66rem; }
+.defense-rgy-val { font-size: 0.62rem; opacity: 0.88; }
+.defense-rgy-marker-lbl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  font-size: 0.66rem;
+  line-height: 1.2;
+  color: var(--tx-2);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.defense-rgy-rail--compact .defense-rgy-track { min-height: 18px !important; }
+.defense-rgy-cap-compact { margin-bottom: 0.35rem !important; font-size: 0.72rem !important; line-height: 1.4 !important; }
+
+/* 轨道外框：与侧栏 Card 一致，不用信息青描边 */
+.defense-neon-rail .defense-neon-track {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--bdr) !important;
+  background: var(--bg-3);
+  box-shadow: var(--shadow);
+}
+
+/* 色面 = alert 背景同系 rgba + 轻内发光（与卡片左条同色） */
+.defense-neon-rail .defense-rgy-fill-danger {
+  background: rgba(224, 85, 85, 0.14) !important;
+  box-shadow: inset 0 0 26px rgba(224, 85, 85, 0.22);
+}
+.defense-neon-rail .defense-rgy-fill-warn {
+  background: rgba(224, 145, 58, 0.14) !important;
+  box-shadow: inset 0 0 26px rgba(224, 145, 58, 0.2);
+}
+.defense-neon-rail .defense-rgy-fill-success {
+  background: rgba(76, 175, 130, 0.14) !important;
+  box-shadow: inset 0 0 26px rgba(76, 175, 130, 0.2);
+}
+
+/* 与 defense-traffic 相同的 4px 左/右边条（首段左缘、末段右缘） */
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-danger:first-child {
+  border-left: 4px solid var(--c-danger);
+}
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-warn:first-child {
+  border-left: 4px solid var(--c-warn);
+}
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-success:first-child {
+  border-left: 4px solid var(--c-success);
+}
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-danger:last-child {
+  border-right: 4px solid var(--c-danger);
+}
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-warn:last-child {
+  border-right: 4px solid var(--c-warn);
+}
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-success:last-child {
+  border-right: 4px solid var(--c-success);
+}
+
+/* 三区中间带：左右不设 accent，避免与相邻段重复 */
+.defense-neon-rail .defense-neon-track > .defense-rgy-fill-warn:not(:first-child):not(:last-child) {
+  border-left: none;
+  border-right: none;
+}
+
+/* ─── 分界竖线（共用）：无论在 tau-drag 还是 single-drag 内均可见 ─── */
+/* 基础规则：给所有 .defense-neon-vline 加宽度/颜色，无论父级是谁 */
+.defense-neon-vline {
+  display: block;
+  width: 3px !important;
+  min-width: 3px;
+  flex: 0 0 3px !important;
+  min-height: 18px;
+  align-self: stretch;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(215, 220, 235, 0.88) 100%) !important;
+  box-shadow:
+    0 0 5px rgba(0, 0, 0, 0.8),
+    0 0 12px rgba(255, 255, 255, 0.5),
+    0 0 6px rgba(255, 255, 255, 0.3) !important;
+  pointer-events: none;
+}
+/* 旧选择器保留，覆盖潜在其他样式 */
+.defense-neon-rail .defense-rgy-overlay {
+  z-index: 3;
+}
+.defense-tau-drag,
+.defense-single-drag {
+  min-height: 22px;
+  align-items: stretch;
+}
+.defense-tau-drag .defense-neon-vline,
+.defense-single-drag .defense-neon-vline {
+  min-height: 100%;
+}
+.defense-two-zone.defense-rgy-rail { margin-bottom: 0.35rem; }
+
+/* ── Invest vs research: same grid; research hides text, keeps charts ── */
+/* Feedback 要求：研究模式下讲解卡片仍可展开（不再全局隐藏 invest-interpretation-block）。 */
+/* 如需仅隐藏“主栏讲解卡”，可将选择器收窄到 `.main-dashboard-col .invest-interpretation-block`。 */
+.app-mode-research .invest-interpretation-block {
+  display: block !important;
+}
+
+/* P0: when text cols are hidden, let chart cols expand to full width */
+.app-mode-research #p0-corr-col,
+.app-mode-research #p0-beta-col {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+/* P1: card-p1, p1-asset-cards, p1-group-analysis stay visible – just hide intro card */
+
+/* P2: dropdown search block hidden – density chart col expands */
+.app-mode-research .p2-consistency-gauge-col,
+.app-mode-research .p2-jsd-merge-col {
+  /* keep layout as-is; text labels inside are hidden via invest-interpretation-block */
+}
+
+.research-index-tree-card .accordion-button {
+  font-size: 0.78rem;
+  padding: 0.45rem 0.65rem;
+}
+.research-under-accordion .accordion-body {
+  padding-top: 0.5rem;
+  padding-bottom: 0.65rem;
+}
+
+/* ── Figure 单元：细色框成组（图 + 研究索引 + 讲解卡），取消大块统一白底框 ── */
+.figure-unit {
+  border: 1px solid var(--figure-unit-br, var(--bdr-mid));
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.65rem 0.65rem;
+  margin-bottom: 0.85rem;
+  background: transparent;
+  box-shadow: none;
+}
+.figure-unit--c0 { --figure-unit-br: rgba(79, 195, 247, 0.55); }
+.figure-unit--c1 { --figure-unit-br: rgba(171, 71, 188, 0.55); }
+.figure-unit--c2 { --figure-unit-br: rgba(38, 198, 218, 0.5); }
+.figure-unit--c3 { --figure-unit-br: rgba(255, 167, 38, 0.55); }
+.figure-unit--c4 { --figure-unit-br: rgba(129, 199, 132, 0.5); }
+.figure-unit--c5 { --figure-unit-br: rgba(239, 83, 80, 0.5); }
+
+/* Figure 编号标题行：贴顶，带与框同色下分界线 */
+.figure-unit-label {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tx-1);
+  letter-spacing: 0.04em;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.45rem;
+  border-bottom: 2px solid var(--figure-unit-br, var(--bdr-mid));
+}
+
+.overview-card-wrap .card-header:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Metric rails (FigX.2/4) ── */
+.metric-rail {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  overflow: visible !important;
+}
+
+.metric-rail > *:not(.defense-neon-track) {
+  overflow: visible;
+}
+
+.sidebar-rail-col, .defense-rgy-wrap {
+  overflow: visible !important;
+}
+
+.metric-rail--entropy,
+.metric-rail--cred {
+  overflow: visible !important;
+}
+
+.metric-rail-left {
+  width: 140px;
+  flex: 0 0 140px;
+}
+.metric-rail-right {
+  width: 190px;
+  flex: 0 0 190px;
+  text-align: right;
+}
+.metric-rail-right--big {
+  width: 190px;
+  flex: 0 0 190px;
+}
+
+.metric-rail-title {
+  font-weight: 650;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.metric-rail-score {
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.15;
+}
+.metric-rail-delta {
+  font-size: 14px;
+  font-weight: 650;
+}
+.metric-rail-var {
+  font-weight: 650;
+  font-size: 14px;
+}
+.metric-rail-var-val {
+  font-weight: 750;
+  font-size: 16px;
+}
+.metric-rail-thresh {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.metric-rail-track-wrap {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  overflow: visible;
+}
+
+/* Ensure the bar itself always spans the full middle column */
+.metric-rail .defense-neon-rail {
+  display: block;
+  width: 100%;
+}
+
+/* Make FigX.2 / FigX.4 bars longer by removing the right column */
+.metric-rail--entropy .metric-rail-right,
+.metric-rail--cred .metric-rail-right {
+  display: none !important;
+}
+
+/* Sidebar2 rails: move the whole chart down a bit */
+.sb2-metric-rail-wrap {
+  margin-top: 10px;
+  width: 100%;
+  display: block;
+}
+
+.sb2-metric-rail-wrap .metric-rail {
+  width: 100%;
+}
+
+.metric-rail-overlay .metric-rail-vline {
+  width: 3px;
+  border-radius: 2px;
+  z-index: 9;
+}
+.metric-rail-overlay .metric-rail-vline--white {
+  width: 2px;
+  opacity: 0.95;
+  z-index: 10;
+  box-shadow: 0 0 8px rgba(255,255,255,0.35);
+}
+.metric-rail-overlay .metric-rail-vline--red {
+  z-index: 9;
+}
+.metric-rail-overlay .metric-rail-caret {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 10px solid #ff3b30;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+  transform: translateX(-50%);
+  z-index: 12;
+}
+
+/* Make the red caret "touch" the red line/track edge */
+.metric-rail-overlay .metric-rail-caret {
+  margin-top: 0px;
+}
+
+/* Ensure side-bar-style tau annotations look identical inside metric rails */
+.metric-rail .defense-tau-anno-layer {
+  margin-top: 6px;
+}
+
+/* Credibility: put endpoints (0/1) on the first (number) row */
+.metric-rail--cred .defense-tau-axis-0,
+.metric-rail--cred .defense-tau-axis-1 {
+  top: 0;
+  bottom: auto;
+}
+
+/* Structural Entropy: put endpoints (0.20/0.80) on the SAME row as T_H1,
+   mirroring the credibility rail. Previously these dropped to a second row
+   because only .metric-rail--cred had the override. */
+.metric-rail--entropy .defense-tau-axis-0,
+.metric-rail--entropy .defense-tau-axis-1 {
+  top: 0;
+  bottom: auto;
+}
+
+/* ── metric-rail-neon: neon coloured outer edges + seam lines between
+   adjacent segments. Namespaced (not .defense-neon-rail) to avoid the
+   legacy "middle segment has no borders" rule. ────────────────────────── */
+.metric-rail-neon .defense-neon-track {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* Every segment gets a 2px colour outline in its OWN fill colour on all four
+   sides → adjacent segments meet with a 4px bi-colour seam (e.g. yellow|green
+   at the τ_H1 boundary; red|yellow at τ_L2; yellow|green at τ_L1). */
+.metric-rail-neon .defense-neon-track > .defense-rgy-seg {
+  position: relative;
+  box-sizing: border-box;
+}
+.metric-rail-neon .defense-neon-track > .defense-rgy-fill-danger {
+  border: 2px solid var(--c-danger);
+}
+.metric-rail-neon .defense-neon-track > .defense-rgy-fill-warn {
+  border: 2px solid var(--c-warn);
+}
+.metric-rail-neon .defense-neon-track > .defense-rgy-fill-success {
+  border: 2px solid var(--c-success);
+}
+
+/* Hide the seam border on the "shared" side of zero-width segments so they
+   don't leave a stray coloured line when tau is pushed to an extreme. */
+.metric-rail-neon .defense-neon-track > .defense-rgy-seg[data-seg-width="0.0000%"] {
+  border-width: 0 !important;
+}

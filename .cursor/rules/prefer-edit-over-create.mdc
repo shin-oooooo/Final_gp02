@@ -1,0 +1,50 @@
+---
+description: 优先改既有文件；必须新建时自动归档到对应文件夹
+alwaysApply: true
+---
+
+# 优先编辑，少建新文件
+
+## 1 · 决策顺序（越靠前越优先）
+
+1. **改已有函数** — 不改签名，只动内部（见 `modular-refactor.mdc`）
+2. **在已有文件里加函数 / 常量** — 就地扩展同主题文件
+3. **新建文件** — 仅当：
+   - 已有最相关文件 **> 500 行** 且主题正交，或
+   - 新增内容是 **独立单元**（构造器 / 适配器 / 测试数据），再塞入会混淆职责
+
+## 2 · 新文件落位规则（不得放在根/散落）
+
+**必须** 放进已存在的主题目录；按既有命名风格命名。
+
+| 新增内容类型 | 目标目录（按本项目） |
+| --- | --- |
+| Plotly 图表构造器（`fig_*`） | `dash_app/` 或就地加入 `dash_app/figures.py` |
+| Dash 回调 | `dash_app/callbacks/` |
+| 渲染 builder | `dash_app/render/<region>.py` |
+| UI 布局 | `dash_app/ui/` |
+| 文案 / 标题 / 提示 | `dash_app/content/` |
+| 研究期数值逻辑 | `research/` |
+| 契约 / dataclass | `dash_app/render/contracts.py`（追加字段） |
+
+## 3 · 动手前 30 秒自检
+
+```
+- [ ] 已 grep 过同名 / 近义函数？
+- [ ] 能否直接改 already-existing helper？
+- [ ] 若必须新建：目标目录是否已有同主题兄弟文件？
+- [ ] 是否会与现有 __init__.py / 导出约定冲突？
+```
+
+## 4 · 反例 → 正例
+
+```
+❌ 项目根新建 fig_new_table.py
+✅ dash_app/figures_p3_best_table.py（与 figures.py 同级，主题聚类）
+
+❌ 为一次性 helper 建 utils_misc.py
+✅ 内联进调用点所在文件的 _helper 私有函数
+
+❌ 新建 dash_app/render/contracts_p3.py
+✅ 直接给 dash_app/render/contracts.py 的 MainP3Components 追加字段
+```

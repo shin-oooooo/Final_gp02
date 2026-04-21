@@ -1,0 +1,54 @@
+{
+  "invest": {
+    "sb2.st": {
+      "title": "FigX.1 · S_t",
+      "body_template": "测试窗 **{test_start}**～**{test_end}**；侧栏情绪锚 **{sentiment:.3f}**；防御等级 **Level {defense_level}**。与 Phase3 同源累积路径。"
+    },
+    "sb2.h_struct": {
+      "title": "FigX.2 · 结构熵",
+      "body_template": "结构熵 **{h_struct_short}**（全精度 {h_struct}）；阈值 τ_h1 **{tau_h1}**；τ_hγ **{tau_h_gamma}**；γ× **{gamma_multiplier}**；ADF 未过关标的数 **{adf_fail_count}**。用于 Level 0/1 结构压力提示。"
+    },
+    "sb2.stationarity": {
+      "title": "FigX.3 · 平稳性检验",
+      "body_template": "高波动预警、低自相关预警与综合判定占位。结构熵 **{h_struct_short}**；τ_h1 **{tau_h1}**。"
+    },
+    "sb2.consistency": {
+      "title": "FigX.4 · 一致性",
+      "body_template": "可信度评分 **{credibility}**；τ_L2 **{tau_l2}**、τ_L1 **{tau_l1}**；三角 JSD 池化均值 **{jsd_tri}**（动态阈 **{jsd_thr}**）。与三态灯同源。"
+    },
+    "sb2.jsd": {
+      "title": "FigX.5 · 模型—模型应力",
+      "body_template": "三角 JSD 时序；屈服阈 τ=**{jsd_thr}**（k_jsd×max(训练基线,ε)）；ε=**{jsd_baseline_eps}**。应力触发：**{jsd_stress}**。"
+    },
+    "sb2.cosine": {
+      "title": "FigX.6 · 语义余弦",
+      "body_template": "滚动窗 **W={cos_w}** 日；余弦 **{cosine:.4f}**；逻辑断裂（余弦<0）：**{lb_cos}**。"
+    }
+  },
+  "research": {
+    "sb2.st": {
+      "title": "FigX.1 · S_t（研究）",
+      "body_template": "同投资视图；额外索引见主区「研究」桥与图下折叠。**Level {defense_level}**；锚 **{sentiment:.3f}**。"
+    },
+    "sb2.h_struct": {
+      "title": "FigX.2 · 结构熵（研究）",
+      "body_template": "同投资视图；可对照 Phase1 资产卡与 rolling 结构熵导出字段。"
+    },
+    "sb2.stationarity": {
+      "title": "FigX.3 · 平稳性检验（研究）",
+      "body_template": "同投资视图；研究索引含平稳性检验导出字段占位。"
+    },
+    "sb2.consistency": {
+      "title": "FigX.4 · 一致性（研究）",
+      "body_template": "同投资视图；研究索引含 `p2_credibility` / `p2_prob_tests` 轨迹。"
+    },
+    "sb2.jsd": {
+      "title": "FigX.5 · 模型—模型应力（研究）",
+      "body_template": "同投资视图；关注 `test_daily_triangle_jsd_mean`、ε 与首次超 τ 日索引。"
+    },
+    "sb2.cosine": {
+      "title": "FigX.6 · 语义余弦（研究）",
+      "body_template": "同投资视图；关注 `logic_break_semantic_cosine_negative` 与滚动窗 **W={cos_w}**。"
+    }
+  }
+}

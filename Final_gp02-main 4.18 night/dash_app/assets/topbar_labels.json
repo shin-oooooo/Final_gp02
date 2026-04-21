@@ -1,0 +1,22 @@
+{
+  "app_title": "AIE1902 防御研究",
+  "btn_invest": "投资",
+  "btn_research": "研究",
+  "btn_run": "保存运行",
+  "btn_run_icon": "fa-play",
+  "tab_p0": "资产与研究前提",
+  "tab_p1": "数据诊断",
+  "tab_p2": "信号对抗",
+  "tab_p3": "自动防御",
+  "tab_p4": "实验结论",
+  "tab_p0_title": "资产自定义面板与研究前提",
+  "tab_p1_title": "数据诊断与失效前兆识别",
+  "tab_p2_title": "多范式信号对抗与模型失效识别",
+  "tab_p3_title": "自动防御响应",
+  "tab_p4_title": "实验结论展示",
+  "defense_dashboard": "防御数据看板",
+  "btn_toggle_hints": "查看使用提示",
+  "btn_toggle_defense_reasons": "展开查看各防御条件汇总",
+  "btn_download_data_json": "下载 data.json",
+  "btn_kronos_pull_icon": "fa-download"
+}

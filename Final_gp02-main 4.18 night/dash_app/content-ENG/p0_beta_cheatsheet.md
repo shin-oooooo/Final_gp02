@@ -1,0 +1,5 @@
+| Beta value range | Asset attributes | Steady-state Beta (normal times) | Breaking Beta (when something goes wrong) | Investment strategy significance |
+|:---|:---|:---|:---|:---|
+| **β > 1** | Risk Amplifier | Follow the market rise, even excess Alpha | Beta jumps collectively, correlation converges, and net worth drops off a cliff | Positions must be reduced during the break period to prevent risks from getting out of control |
+| **β ≈ 0** | Defensive boundary | Low correlation target, independent trend (such as TLT) | Safe haven: Beta is stable and does not collapse with the market | Core bottom position during the break period, controlling the total retracement |
+| **β < 0** | Extreme hedging target | Normally Beta hovers around 0 (such as XLE) | "Life-saving charm": The harder the market falls, the harder it rises | Offensive defense during the break period, go long to obtain reverse profits |

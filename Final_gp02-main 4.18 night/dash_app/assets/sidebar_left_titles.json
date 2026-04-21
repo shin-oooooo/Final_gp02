@@ -1,0 +1,8 @@
+{
+  "defense_params": "防御等级参数",
+  "credibility_params": "可信度参数",
+  "mc_params": "双轨蒙特卡洛情景参数",
+  "shadow_params": "影子测试（择模）参数",
+  "load_test_params": "模型—市场载荷背离检验参数",
+  "model_update_params": "模型更新时间参数"
+}

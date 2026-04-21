@@ -1,0 +1,2 @@
+WebApp: https://huggingface.co/spaces/shinopqxm/Final_gp02
+Github: http://github.com/shin-oooooo/Final_gp02

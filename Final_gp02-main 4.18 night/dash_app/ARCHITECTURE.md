@@ -1,0 +1,440 @@
+# 全局架构文档 (Architecture)
+
+> 快照版本：2026-04-21 · 覆盖全部 **132 个 `.py` 文件** / 10 个核心目录
+
+---
+
+## 0. 分层总览
+
+本项目是一个 **「研究管线 + Web 后端 + 可视化前端」** 三位一体的 Python 单体。
+所有业务逻辑沿单向依赖 DAG 组织——UI 层只读研究层输出，研究层永不反向依赖 UI：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  用户浏览器  ──  Dash 组件 (clientside.js + Plotly)          │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ HTTP / Dash callbacks
+┌───────────────────────────▼─────────────────────────────────┐
+│  dash_app/  (Plotly Dash UI)                                 │
+│   ├─ ui/           布局组件（静态结构）                       │
+│   ├─ callbacks/    交互回调（按区域拆分）                     │
+│   ├─ render/       快照 → Dash 组件（按 UI 区域）             │
+│   ├─ render/explain/   前端文字（Markdown + 讲解卡）          │
+│   ├─ figures*.py / fig41/   Plotly 图表构建                   │
+│   ├─ pipeline_exec/    滑块 → 管线调用（三级降级）            │
+│   ├─ features/    自包含垂直切片（e.g. research_trace）       │
+│   ├─ services/    跨区域基础服务（copy/i18n）                 │
+│   └─ utilities/   跨区域工具（md_sync 等）                    │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ 本地函数调用 / HTTP (via api/)
+┌───────────────────────────▼─────────────────────────────────┐
+│  research/  (量化管线 Phase 0–3)                              │
+│   ├─ pipeline.py        端到端编排                            │
+│   ├─ phase0/1/2/3.py    四阶段计算                            │
+│   ├─ sentiment/         情绪子系统（9 个模块）                │
+│   ├─ schemas.py         Pydantic 数据契约                     │
+│   ├─ windowing.py       动态训练/测试窗口                     │
+│   ├─ defense_state.py   防御等级解析                          │
+│   ├─ news_newapi.py     NewsAPI 客户端                        │
+│   ├─ sentiment_proxy.py 情绪 re-export shim（133L）           │
+│   └─ _phase2_metrics.py 私有数学 helper                       │
+└──────────────┬──────────────────────────────┬───────────────┘
+               │                              │
+┌──────────────▼──────────┐      ┌────────────▼────────────────┐
+│  api/                    │      │  kronos_model/ +            │
+│   └─ main.py             │      │  kronos_predictor.py        │
+│   FastAPI: /api/analyze  │      │  深度学习价格预测            │
+│   /api/monte_carlo 等    │      │  (BSQuantizer + 注意力)     │
+└──────────────────────────┘      └─────────────────────────────┘
+```
+
+**依赖方向（单向无环）**：
+
+```
+kronos_model  ◄─── kronos_predictor ◄─── research/phase2
+research/sentiment/{lexicons,core,curation,sources_http,sources_crawl,pipeline,scoring,series}
+   └──► research/sentiment_proxy (re-export)
+research/schemas ◄─── research/phase* ◄─── research/pipeline
+dash_app/pipeline_exec ──► research/pipeline（或 api/analyze）
+dash_app/render  ──► research/sentiment_proxy, research/pipeline 的快照
+dash_app/callbacks ──► dash_app/render + dash_app/figures*
+api/main ──► research/pipeline
+```
+
+---
+
+## 1. 项目根 (顶层入口 / 数据)
+
+### 入口脚本
+
+
+| 文件                           | L   | 职责                                                                                              |
+| ---------------------------- | --- | ----------------------------------------------------------------------------------------------- |
+| `run_research.py`            | 28  | 独立 Dash UI 启动器（无 FastAPI），直接暴露 `dash_app.create_dash_app`。                                      |
+| `api/main.py`                | 248 | FastAPI 主入口，挂载 Dash 到 `/dash`；提供 `/api/analyze` / `/api/monte_carlo_bg` / 健康检查等。                |
+| `fetch_data.py`              | 614 | `FetchConfig` + `fetch_us_daily_qfq` / `fetch_futures_au0_daily` 等数据拉取 CLI（AKShare + yfinance）。 |
+| `download_kronos_weights.py` | 29  | 从 HuggingFace 下载 Kronos 预训练权重到 `kronos_weights/`。                                               |
+| `ass1_core.py`               | 199 | 旧版核心算法（保留作参考）：`DataBundle` / `load_bundle` / `daily_returns` / `corr_matrix` 等。                 |
+
+
+### 数据与配置
+
+
+| 项                                                           | 说明                        |
+| ----------------------------------------------------------- | ------------------------- |
+| `data.json`                                                 | 核心行情数据（宽格式收盘价表，~647 KB）。  |
+| `news_fetch_log.json` / `news_fetch_log_premerge.json`      | 情绪管线的抓取日志 + pre-merge 快照。 |
+| `Dockerfile` / `requirements*.txt`                          | 部署依赖。                     |
+| `Models_constraints.md` / `FigX.1-Res.md` / `Instructions/` | 研究说明文档。                   |
+| `.github/scripts/upload_to_hf.py`                           | CI：自动上传权重到 HuggingFace。   |
+
+
+---
+
+## 2. `api/` — FastAPI 后端
+
+
+| 文件                | L   | 职责                                                                                                                                                                                           |
+| ----------------- | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/__init__.py` | 1   | 包标记 + 概述。                                                                                                                                                                                    |
+| `api/main.py`     | 248 | **FastAPI 应用**：`/health`、`/api/analyze` (驱动 `run_pipeline`)、`/api/monte_carlo_bg` (后台任务)、`/api/crawl4ai_seeds`、`/api/integrations_config`、`/api/ollama_health`。对外挂载 Dash 到 `/dash`，根路径自动重定向。 |
+
+
+对外暴露的 API 定义 (`AnalyzeBody` 等 Pydantic body model) 是 **Dash 远程模式** 与任何外部调用者的契约边界。
+
+---
+
+## 3. `dash_app/` — Plotly Dash 前端
+
+**约定**：按"数据流向"而非"phase 编号"拆分。`ui/` 负责**静态布局**，`render/` 负责**快照→组件**转换，`callbacks/` 负责**交互**，`figures*.py/fig41/` 负责**Plotly 图表**，`render/explain/` 负责**可见文字**，`pipeline_exec/` 负责**跨进程管线调用**。
+
+### 3.1 应用根
+
+
+| 文件                                  | L   | 职责                                                                                                                             |
+| ----------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `dash_app/__init__.py`              | 1   | 包概述。                                                                                                                           |
+| `dash_app/app.py`                   | 114 | `create_dash_app()` 工厂：实例化 Dash + 注册所有 callbacks + 构建 layout。                                                                  |
+| `dash_app/constants.py`             | 96  | 跨模块共享常量（配色、ID 命名、数值默认值、防御等级枚举）。                                                                                                |
+| `dash_app/dash_ui_helpers.py`       | 604 | 面向 callbacks 的**薄 helper 层**：情绪分解析、slider 值规整、pipeline 调用包装、errors→alerts 等。                                                   |
+| `dash_app/dashboard_face_render.py` | 170 | **Dashboard 渲染总入口**（薄 orchestrator）：接收快照 + policy + mode，分派到 `render/main_p*.py`、`render/topbar.py`、`render/sidebar_right.py`。 |
+
+
+### 3.2 `ui/` — 静态布局 (13 files)
+
+
+| 文件                          | L   | 职责                                                                 |
+| --------------------------- | --- | ------------------------------------------------------------------ |
+| `ui/layout.py`              | 572 | `build_full_layout()` 总装：三列布局 + Store 组件 + Modal 容器 + Interval 组件。 |
+| `ui/topbar.py`              | 283 | 顶栏结构：模式切换 / 运行按钮 / Kronos 抓取 / 防御等级徽章 / Kronos 就绪状态。               |
+| `ui/sidebar_left.py`        | 758 | 左侧栏：Tab1 项目综述（Markdown）+ Tab2 防御参数自定义（Sliders 组）。                  |
+| `ui/sidebar_right.py`       | 221 | `sidebar_right_column()`：右侧栏 FigX.1–6 容器 + 条件摘要行 + 折叠解释卡。          |
+| `ui/main_p0.py`             | 356 | 主内容 Phase 0：资产宇宙编辑、权重 pie、相关性热图、Beta 块。                            |
+| `ui/main_p1.py`             | 50  | 主内容 Phase 1：平稳性 / LB / 分组分析面板。                                     |
+| `ui/main_p2.py`             | 481 | 主内容 Phase 2：模型选择器、密度热图、影子验证块。                                      |
+| `ui/main_p3.py`             | 140 | 主内容 Phase 3：AdaptiveOptimizer 引言 + 双轨 MC 面板。                       |
+| `ui/main_p4.py`             | 154 | 主内容 Phase 4：预警有效性（Fig4.1）+ 防御策略实验（Fig4.2）。                         |
+| `ui/metric_rails.py`        | 429 | FigX.2/FigX.4 结构熵 + 可信度的轨道可视化辅助组件。                                 |
+| `ui/modals.py`              | 74  | `modal_add_asset()` 等弹窗容器。                                         |
+| `ui/p0_universe_helpers.py` | 387 | P0 资产宇宙编辑的 helper（校验、默认权重、分类映射）。                                   |
+| `ui/__init__.py`            | 0   | 空包。                                                                |
+
+
+### 3.3 `callbacks/` — 交互回调 (10 files)
+
+> 每个文件对应一组相关回调；`app.py` 逐个调用 `register_*_callbacks(app)`。
+
+
+| 文件                                 | L   | 职责                                                                                                         |
+| ---------------------------------- | --- | ---------------------------------------------------------------------------------------------------------- |
+| `callbacks/__init__.py`            | 23  | 统一导出 `register_all_callbacks`。                                                                             |
+| `callbacks/app_shell.py`           | 403 | 主题切换、投资/研究模式状态、Kronos 权重就绪轮询、全局 Store 初始化。                                                                 |
+| `callbacks/clientside.py`          | 87  | 客户端 JS 回调（纯前端状态同步，零 server round-trip）。                                                                    |
+| `callbacks/dashboard_pipeline.py`  | 324 | **主运行链**：聚合所有 Store → 调用 `pipeline_exec.execute_pipeline_for_dashboard` → 更新 `last-snap` 与 dashboard face。 |
+| `callbacks/defense_rails.py`       | 91  | 防御 τ 参数滑块 ↔ 可视化轨道双向绑定。                                                                                     |
+| `callbacks/p0_assets.py`           | 414 | P0 资产面板 + pie chart 的增删改 + 校验。                                                                             |
+| `callbacks/p2_symbol.py`           | 111 | P2 单标的选择 → 模型对比面板刷新。                                                                                       |
+| `callbacks/research_panels.py`     | 220 | 研究溯源面板（`features/research_trace`）的异步展开。                                                                    |
+| `callbacks/sidebar2_visibility.py` | 26  | 根据主 Tab 切换右侧栏 FigX 模块可见性。                                                                                  |
+| `callbacks/sidebar_layout.py`      | 32  | 侧栏折叠按钮 ↔ CSS 类同步。                                                                                          |
+
+
+### 3.4 `render/` — 快照 → 组件 (区域化渲染，14 files)
+
+> `render/` 不直接访问 Dash 状态；只接 `(snap_json, policy, mode)` 这类纯输入，返回 `MainPxComponents` 等 dataclass。
+
+
+| 文件                            | L   | 职责                                                                                                               |
+| ----------------------------- | --- | ---------------------------------------------------------------------------------------------------------------- |
+| `render/__init__.py`          | 64  | 子包概述 + `DashboardState` 快照抽取的公开接口。                                                                               |
+| `render/common.py`            | 25  | `minimal_placeholder_figure()` 等跨区域助手。                                                                           |
+| `render/contracts.py`         | 201 | `DashboardState` + `MainP{0..4}Components` + `SidebarRightComponents` + `TopbarDynamicComponents` 等冻结 dataclass。 |
+| `render/state.py`             | 176 | `extract_dashboard_state()`：从 `snap_json` + policy 一次性抽所有派生值（JSD 阈值、defense level、figx vars…）。                   |
+| `render/main_p0.py`           | 200 | P0 渲染：资产相关性 / Beta / 环境报告 / 诊断汇总。                                                                                |
+| `render/main_p1.py`           | 136 | P1 渲染：资产诊断卡片网格 + 分组分析。                                                                                           |
+| `render/main_p2.py`           | 94  | P2 渲染：标的下拉 / 影子择模 / 像素矩阵 / 密度热图。                                                                                 |
+| `render/main_p3.py`           | 99  | P3 渲染：目标 banner / Fig3.1 最佳模型 μ/σ 表 / MC / 权重。                                                                   |
+| `render/main_p4.py`           | 141 | P4 渲染：Fig4.1（a+b+结论卡）+ Fig4.2（防御策略对照）。                                                                           |
+| `render/fig_p3_best_table.py` | 235 | `fig_p3_best_mu_sigma_table()`：Phase 3 各标的最佳模型 μ/σ 三行小表。                                                         |
+| `render/sidebar_right.py`     | 352 | 右侧栏 FigX.1–6 + 可折叠讲解卡 的全局装配。                                                                                     |
+| `render/topbar.py`            | 89  | 顶栏动态：defense-intro-slot + reasons-collapse。                                                                      |
+
+
+### 3.5 `render/explain/` — 前端所有文字 (24 files)
+
+> **统一讲解层**。按 UI 区域拆分，与 `render/` 平行；所有 Markdown 模板从 `FigX.*.md` / `Fig4.*.md` 加载并注入变量。
+
+
+| 文件                                                           | L   | 职责                                                                                    |
+| ------------------------------------------------------------ | --- | ------------------------------------------------------------------------------------- |
+| `explain/__init__.py`                                        | 160 | 统一对外接口（`build_caption_bundle` 等）。                                                     |
+| `explain/_formatters.py`                                     | 158 | 跨卡片共用的 MD 工具：`cov_to_markdown_table`、`compute_figx2_physics_vars`、`fmt_traffic_md` 等。 |
+| `explain/_loaders.py`                                        | 261 | MD 模板加载 + 占位符替换 + Defense-Tag 段解析。                                                    |
+| `explain/figure_captions.py`                                 | 194 | FigX.* 讲解卡片通用变量注入 + bundle 组装。                                                        |
+| **主栏 P0-P4**:                                                |     |                                                                                       |
+| `explain/main_p0/{__init__,bodies,card_titles,narrative}.py` | 112 | P0 热图 body / Beta cheatsheet / 分组 / Phase0 intro 叙事。                                  |
+| `explain/main_p1/{__init__,bodies,narrative}.py`             | 86  | P1 方法论 / 分组分析叙事。                                                                      |
+| `explain/main_p2/{__init__,bodies}.py`                       | 21  | P2 像素影子 / Fig2.1 引言。                                                                  |
+| `explain/main_p3/{__init__,bodies}.py`                       | 46  | P3 Adaptive 章节 + 双轨 MC 介绍。                                                            |
+| `explain/main_p4/{__init__,bodies,fig41,fig42}.py`           | 196 | P4 Fig4.1 fallback body + Fig4.2 三权重测试窗对照讲解。                                          |
+| **侧栏 FigX**:                                                 |     |                                                                                       |
+| `explain/sidebar_right/_shared.py`                           | 37  | 侧栏私有 helper（iso 日期格式化、defense_validation）。                                            |
+| `explain/sidebar_right/figx1.py`                             | 72  | FigX.1 · S_t 情绪路径讲解卡 + defense-tag 条件行。                                               |
+| `explain/sidebar_right/figx2.py`                             | 66  | FigX.2 · 结构熵。                                                                         |
+| `explain/sidebar_right/figx3.py`                             | 99  | FigX.3 · 资产异常诊断 + ADF 细节格式化。                                                          |
+| `explain/sidebar_right/figx4.py`                             | 65  | FigX.4 · 可信度评分 + 三态灯。                                                                 |
+| `explain/sidebar_right/figx5.py`                             | 118 | FigX.5 · 模型–模型 JSD 应力。                                                                |
+| `explain/sidebar_right/figx6.py`                             | 166 | FigX.6 · 语义–数值滚动余弦。                                                                   |
+| **顶栏**:                                                      |     |                                                                                       |
+| `explain/topbar/defense_intro.py`                            | 38  | 顶栏三色 Level 0/1/2 介绍横排。                                                                |
+| `explain/topbar/diagnosis.py`                                | 46  | 顶栏诊断 headline。                                                                        |
+| `explain/topbar/p0_aggregate_line.py`                        | 64  | 顶栏 Phase 0 聚合条件行（与 `resolve_defense_level` 对齐）。                                       |
+
+
+### 3.6 `figures*.py` + `fig41/` — Plotly 图表
+
+
+| 文件                   | L    | 职责                                                                                                                                                                                                                                                                   |
+| -------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `figures.py`         | 1147 | **主 Plotly 图库**：`fig_correlation_heatmap` / `fig_p0_portfolio_pie` / `fig_beta_regime_compare` / `fig_model_forecast_overlay` / `fig_mc_dual_track` / `fig_p3_triple_test_equity` / `fig_weights_compare` / `fig_p2_best_model_pixels` / `fig_p2_density_heatmap` 等。 |
+| `figures_defense.py` | 621  | 防御专用图：`fig_st_sentiment_path` / `fig_defense_jsd_stress_timeseries` / `fig_defense_semantic_cosine` / `fig_fig41_focus_daily_returns` / `fig_fig41_std_by_k`。                                                                                                        |
+| `fig41/__init__.py`  | 46   | Fig 4.1 · 预警有效性检验 — 高内聚模块入口。                                                                                                                                                                                                                                         |
+| `fig41/contracts.py` | 142  | `Fig41Baselines` / `Fig41Hits` / `Fig41PostAlarm` / `Fig41Bundle` 等冻结 dataclass。                                                                                                                                                                                     |
+| `fig41/extract.py`   | 354  | `extract_fig41_bundle()`：从 `snap_json` 解析成 `Fig41Bundle`。                                                                                                                                                                                                            |
+| `fig41/render.py`    | 881  | `build_fig41_components()`：bundle → Dash / Plotly 组件。                                                                                                                                                                                                                |
+
+
+### 3.7 `pipeline_exec/` — 管线调用桥 (5 files)
+
+
+| 文件                                    | L   | 职责                                                                  |
+| ------------------------------------- | --- | ------------------------------------------------------------------- |
+| `pipeline_exec/__init__.py`           | 27  | 对外接口。                                                               |
+| `pipeline_exec/contracts.py`          | 80  | `SliderInputs` / `PipelineResult` 冻结 dataclass。                     |
+| `pipeline_exec/executor.py`           | 197 | `execute_pipeline_for_dashboard()`：**API → 本地 → 无 detail 重试** 三级降级。 |
+| `pipeline_exec/policy_builder.py`     | 202 | 滑块原值 → `DefensePolicyConfig`（纯函数，带裁剪 + 断言 + 日志）。                    |
+| `pipeline_exec/sentiment_resolver.py` | 186 | `resolve_sentiment()`：情绪分 (S_t) 与情绪详情的纯函数解析。                        |
+
+
+### 3.8 `features/` — 自包含垂直切片
+
+
+| 文件                                    | L   | 职责                                                            |
+| ------------------------------------- | --- | ------------------------------------------------------------- |
+| `features/__init__.py`                | 1   | 包概述。                                                          |
+| `features/research_trace/__init__.py` | 34  | 研究模式溯源弹窗入口。                                                   |
+| `features/research_trace/code.py`     | 62  | `load_code_excerpt()` / `snapshot_value_excerpt()` 源码 + 快照摘取。 |
+| `features/research_trace/modal.py`    | 191 | `get_trace_modal_sections()`：组装弹窗四段（结果 / 计算 / 参数 / 学习）。       |
+| `features/research_trace/models.py`   | 102 | `CodeRef` / `TraceItem` / 静态 TraceItem 注册表。                   |
+
+
+### 3.9 `services/` + `utilities/`
+
+
+| 文件                      | L   | 职责                                                 |
+| ----------------------- | --- | -------------------------------------------------- |
+| `services/__init__.py`  | 1   | 跨区域基础服务入口。                                         |
+| `services/copy.py`      | 416 | **前端所有可见文字的统一查找入口**：语言切换、MD 文本查找、图表标题、顶栏标签、侧栏标签。   |
+| `utilities/__init__.py` | 1   | 跨区域工具入口。                                           |
+| `utilities/md_sync.py`  | 324 | `md_sync` CLI：Markdown 模板 ↔ 快照数据同步（Feedback R3.2）。 |
+
+
+---
+
+## 4. `research/` — 量化研究管线
+
+**单向数据流**：`schemas → phase0 → phase1 → phase2 → defense_state → phase3 → pipeline`；情绪子系统、新闻源、Crawl4AI 作为旁路数据提供者。
+
+### 4.1 核心管线
+
+
+| 文件                          | L   | 职责                                                                                   |
+| --------------------------- | --- | ------------------------------------------------------------------------------------ |
+| `research/__init__.py`      | 40  | 子包声明（Phase 0–3、schemas、state、defense）。                                               |
+| `research/pipeline.py`      | 979 | **端到端 orchestrator**：`run_pipeline()` 串联四阶段 + 情绪解析 + μ/Σ 历史 + 快照序列化。                 |
+| `research/schemas.py`       | 597 | Pydantic 契约：`DefensePolicyConfig` / `Phase{0,1,2,3}Input                             |
+| `research/windowing.py`     | 156 | 动态训练/测试窗口解析（含 `resolve_dynamic_train_test_windows` / `resolve_regime_break_window`）。 |
+| `research/defense_state.py` | 73  | `DefenseLevel` 枚举 + `resolve_defense_level()`（统一 state_bit 真源）。                      |
+| `research/state_manager.py` | 41  | `GlobalStateManager` 单例（阶段间单向数据流）。                                                   |
+
+
+### 4.2 四阶段 Phase 计算
+
+
+| 文件                            | L    | 职责                                                                               |
+| ----------------------------- | ---- | -------------------------------------------------------------------------------- |
+| `research/phase0.py`          | 201  | Phase 0：资产宇宙、时间切分、正交性、环境报告、动态 Beta 追踪。                                           |
+| `research/phase1.py`          | 192  | Phase 1：对数收益 ADF + Ljung-Box + 结构熵（逐资产诊断）。                                       |
+| `research/phase2.py`          | 1113 | Phase 2：异质模型集合、概率对齐、KL/JSD、一致性、影子 MSE；`kronos_one_step_mu_from_close()` 对接深度模型。  |
+| `research/phase3.py`          | 607  | Phase 3：`AdaptiveOptimizer`（Sharpe / 加权语义惩罚 / 条件 CVaR）+ 向量化跳扩散 MC + 情绪路径驱动的跳跃调度。 |
+| `research/_phase2_metrics.py` | 120  | Phase 2 私有数学 helper（高斯散度、JSD、DM 检验）。                                             |
+
+
+### 4.3 后续分析 & 回测
+
+
+| 文件                                        | L   | 职责                                                  |
+| ----------------------------------------- | --- | --------------------------------------------------- |
+| `research/post_alarm_realized_metrics.py` | 595 | 预警后实现收益特征：崩盘阈值训练、横截面混沌、尾部增厚；为 Fig4.1 提供数据。          |
+| `research/backtest_analyzer.py`           | 45  | `BacktestAnalyzer`：Phase 2 影子推理的 walk-forward 残差存储。 |
+
+
+### 4.4 数据加载 & 新闻
+
+
+| 文件                                      | L   | 职责                                                                                                          |
+| --------------------------------------- | --- | ----------------------------------------------------------------------------------------------------------- |
+| `research/data_refresher.py`            | 182 | `data.json` 自动增量刷新（`maybe_refresh` / `refresh_status`）。                                                     |
+| `research/news_fetch_log.py`            | 244 | 新闻抓取日志（含全部 headlines 与 S_t 分布）写入 JSON。                                                                      |
+| `research/news_newapi.py`               | 578 | NewsAPI 客户端：`fetch_newapi_everything` / `fetch_newapi_headlines` / `fetch_newapi_headlines_interval_vader`。 |
+| `research/sentiment_calendar.py`        | 89  | 测试窗口 + 新闻时间 horizon 辅助函数（ISO 日期、可配置 span 裁剪）。                                                               |
+| `research/crawl4ai_config.py`           | 160 | Crawl4AI 种子词库（`CRAWL4AI_TITLE_SEED_TERMS`）+ Google News Geo RSS。                                            |
+| `research/integrations.py`              | 54  | `ExternalIntegrations` 配置（Crawl4AI / Ollama / 资讯源），环境变量覆盖。                                                  |
+| `research/install_crawl4ai_browsers.py` | 25  | 一次性安装 Playwright Chromium（供 Crawl4AI 使用）。                                                                   |
+
+
+### 4.5 `research/sentiment/` — 情绪子系统 (9 files)
+
+> **2026-04-21 拆分**：从单文件 `sentiment_proxy.py`（原 3225L → 后 1904L）分解为 1 个 shim + 8 个子模块。依赖 DAG 单向：`lexicons → core → curation → sources_{http,crawl} → pipeline`。所有历史 `from research.sentiment_proxy import X` 继续工作（74 个符号 re-export）。
+
+
+| 文件                           | L   | 职责                                                                                                                                        |
+| ---------------------------- | --- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `sentiment/__init__.py`      | 16  | 包 docstring + 子模块布局说明。                                                                                                                    |
+| `sentiment/lexicons.py`      | 794 | 纯数据表：`_IRAN_US_LEXICON` / `_RISK_KEYWORDS` / `_POSITIVE_KEYWORDS` / `_MONTH_PREFIX` / `_TICKER_KEYWORD_MAP` / `_CONTEXT_DIRECTION_PAIRS`。 |
+| `sentiment/core.py`          | 294 | 基础类型 / 常量 / 日期规整 / `HeadlineFetch` / VADER 分析器 / 日期文本解析 / `_crawl_result_markdown`。                                                       |
+| `sentiment/curation.py`      | 493 | 3 条 junk 正则 + headline 门控（seed/latin/wire/crawl4ai）+ 按日上限 + 10 个 merge/cap/gap-fill helper + 日历段切分。                                       |
+| `sentiment/sources_http.py`  | 421 | `_MARKET_RSS_FEEDS` + 并行 RSS 抓取 + Google News geo 种子 + `_fetch_newapi_headline_items`。                                                    |
+| `sentiment/sources_crawl.py` | 380 | `_headline_candidates_from_markdown` + `_fetch_crawl4ai_headline_items` + AKShare 英/中双路。                                                  |
+| `sentiment/pipeline.py`      | 448 | 5 个 pool-level helper + `_fetch_combined_headline_items` 编排器。                                                                             |
+| `sentiment/scoring.py`       | 301 | `get_sentiment_detail()` / `get_sentiment_score()` 公开 API + 按 ticker 情绪分析 + 风险加权。                                                         |
+| `sentiment/series.py`        | 398 | 每日 VADER S_t 时序构建：`vader_st_series_from_detail` / `_kernel_smoothed_from_detail` / `_partition_cumulative_from_detail`。                   |
+| `sentiment_proxy.py`         | 133 | **re-export shim**（保留历史导入路径；74 符号全部 identity-equal）。                                                                                      |
+
+
+### 4.6 CLI 工具
+
+
+| 文件                             | L   | 职责                                                   |
+| ------------------------------ | --- | ---------------------------------------------------- |
+| `research/cli_news_window.py`  | 140 | CLI：抓取合并 headlines 并按日历段输出窗口内的分布。                    |
+| `research/cli_sentiment_st.py` | 211 | CLI：无 UI 情绪分计算（RSS + AKShare + Crawl4AI → VADER 时序）。 |
+
+
+---
+
+## 5. `kronos_model/` + `kronos_predictor.py` — 深度学习预测
+
+
+| 文件                         | L   | 职责                                                                                                                                       |
+| -------------------------- | --- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `kronos_model/__init__.py` | 17  | `get_model_class()` 工厂。                                                                                                                  |
+| `kronos_model/kronos.py`   | 662 | `KronosTokenizer` + `Kronos` 模型主体 + `auto_regressive_inference` + `KronosPredictor`。                                                     |
+| `kronos_model/module.py`   | 570 | 底层组件：`BSQuantizer` / `RMSNorm` / `FeedForward` / `RotaryPositionalEmbedding` / `MultiHeadAttentionWithRoPE` / `HierarchicalEmbedding` 等。 |
+| `kronos_predictor.py`      | 522 | 项目侧封装：`prepare_ohlcv_from_close` / `kronos_forecast` / `kronos_one_step_mu_from_close` 供 `research.phase2` 使用。                           |
+
+
+权重目录 `kronos_weights/` 不进 Git；通过 `download_kronos_weights.py` 从 HuggingFace 拉取。
+
+---
+
+## 6. 外部目录速览（无 `.py`）
+
+
+| 目录                | 说明                                                       |
+| ----------------- | -------------------------------------------------------- |
+| `FD/`             | 失败诊断 Markdown 报告（`FigX.1-Res.md` 原料）。                    |
+| `Instructions/`   | 研究说明 / 流程文档。                                             |
+| `scripts/`        | 一次性运维脚本（部分 bash/sh）。                                     |
+| `kronos_weights/` | 预训练权重二进制（Git-ignore）。                                    |
+| `.cursor/`        | IDE rules（`prefer-edit-over-create`、`modular-refactor`）。 |
+
+
+---
+
+## 7. 数据流与运行时序
+
+**一次"运行"按钮点击的端到端时序：**
+
+1. **参数收集** ─ `callbacks/dashboard_pipeline.py` 从多个 Dash Store 聚合：资产宇宙、权重、日期区间、滑块原值、模式开关。
+2. **Policy 构建** ─ `pipeline_exec/policy_builder.build_policy_from_sliders()` 纯函数裁剪滑块 → `DefensePolicyConfig`（带断言 + 日志）。
+3. **情绪解析** ─ `pipeline_exec/sentiment_resolver.resolve_sentiment()` 调用 `research.sentiment_proxy.get_sentiment_detail()` / `_fetch_combined_headline_items()` 得到 S_t + headlines；底层进入 `research.sentiment.pipeline._fetch_combined_headline_items`。
+   **Constant-trap 防御（2026-04 引入）**：`research/sentiment/series.py::vader_st_series_kernel_smoothed_from_detail` 里共 3 层守卫确保 S_t 序列不会退化为一条直线：
+   * **Guard #1** — 若测试窗 + warmup 内**无任何**头条，自动把 warmup 扩展到 ≥90 日历日再试一次；
+   * **Guard #2** — 仍然无头条时，围绕 `fallback` 叠加 ±0.03 + ±0.01 的基频/三次谐波正弦扰动（过 `tanh` 后仍可见），并在 `detail["_st_trace"]` 写入 `constant_trap_synthetic=True` + `synthetic_reason="no_headlines_in_extended_warmup"`；
+   * **Guard #3** — 主路径算完若 `ptp(out_vals) < 5e-4`（头条全聚集在单一日历日的典型场景），叠加 ±0.02 + ±0.008 正弦扰动，`synthetic_reason="kernel_output_near_constant"`。
+   `research/pipeline.py` 把 `_st_trace` 透传为 `meta.sentiment_st_trace`，并根据极差给 `meta.sentiment_st_is_constant`（bool）置位，前端可据此在 FigX.1 做"合成占位"可视化提示。
+   默认中性占位从 **-0.1 → 0.0**（`scoring.get_sentiment_score/_detail` 的 `fallback=` 默认值 + `sentiment_resolver._SENTIMENT_NEUTRAL_FALLBACK` 同步）；这样"看似轻微负向"的占位不会被误读为真实信号。
+4. **管线执行** ─ `pipeline_exec/executor.execute_pipeline_for_dashboard()` 三级降级：
+  - 优先走 **远程** `POST /api/analyze`（`api/main.py`）；
+  - 失败回落**本地** `research.pipeline.run_pipeline()`；
+  - 如再失败则**无 detail 重试**（跳过情绪 detail，保底返回结构）。
+5. **Phase 0→3** ─ `run_pipeline()` 驱动 `phase0.run_phase0 → phase1.run_phase1 → phase2.run_phase2 → defense_state.resolve_defense_level → phase3.run_phase3`，每阶段产出由 `schemas.Phase*Output` 约束。
+6. **快照序列化** ─ 所有 Pydantic 对象 → `snapshot_to_jsonable()` 扁平化为 `snap_json`，写入 Dash `last-snap` Store。
+7. **派生抽取** ─ `render/state.extract_dashboard_state()` 一次性把快照解析为 `DashboardState`（含 JSD 阈值、defense level、figx 变量）。
+8. **并发渲染** ─ `dashboard_face_render.render_dashboard_outputs()` 分发到：
+  - `render/main_p0.build_main_p0_components` …  `main_p4.build_main_p4_components`；
+  - `render/topbar.build_topbar_dynamic_components`；
+  - `render/sidebar_right.build_sidebar_right_components`；
+  - 每个组件内部并行调用 `figures.py` / `figures_defense.py` / `fig41/render.py` 构建 Plotly 对象；
+  - `render/explain/`** 加载对应 Markdown 模板、注入变量、产出讲解卡。
+9. **UI 推送** ─ callbacks 一次性把所有 `(figure, md_text, card_title, …)` tuple 回推到 Dash outputs。
+10. **局部刷新** ─ 后续切换资产 / 切换研究↔投资模式 **只读 `last-snap*`*，不重跑管线；秒级局部重绘。
+
+---
+
+## 8. 约束与边界 (Coding Guardrails)
+
+本项目遵循的核心原则（对应 `.cursor/rules/`）：
+
+1. **单文件职责清晰**：大多数文件 ≤ 500L；超出的（`figures.py` 1147L / `fig41/render.py` 881L / `phase2.py` 1113L / `pipeline.py` 979L / `sidebar_left.py` 758L）要么是**纯图表/布局**（展示密集型），要么是**阶段 orchestrator**（内聚整块）。
+2. **黑盒接口**：外部契约（函数签名、参数顺序、返回值）不动；内部可自由重构。`sentiment_proxy.py` 的 shim 化即为此原则的典型。
+3. **单向 DAG**：UI 层永不反向依赖研究层；研究层各 phase 不反向依赖后续 phase；情绪子系统 `sentiment/` 内部 DAG 也单向无环。
+4. **纯函数优先**：`pipeline_exec/policy_builder.py`、`pipeline_exec/sentiment_resolver.py`、`render/state.py`、`_phase2_metrics.py` 等均为纯函数，便于单测。
+5. **Store-Centric 状态**：Dash 端所有跨回调状态以 `dcc.Store` 为真源；`last-snap` Store 是"最近一次运行快照"的唯一读取点。
+
+---
+
+## 附录：文件体量 Top 15
+
+
+| 排名  | 文件                                        | L    |
+| --- | ----------------------------------------- | ---- |
+| 1   | `dash_app/figures.py`                     | 1147 |
+| 2   | `research/phase2.py`                      | 1113 |
+| 3   | `research/pipeline.py`                    | 979  |
+| 4   | `dash_app/fig41/render.py`                | 881  |
+| 5   | `research/sentiment/lexicons.py`          | 794  |
+| 6   | `dash_app/ui/sidebar_left.py`             | 758  |
+| 7   | `kronos_model/kronos.py`                  | 662  |
+| 8   | `dash_app/figures_defense.py`             | 621  |
+| 9   | `fetch_data.py`                           | 614  |
+| 10  | `research/phase3.py`                      | 607  |
+| 11  | `dash_app/dash_ui_helpers.py`             | 604  |
+| 12  | `research/schemas.py`                     | 597  |
+| 13  | `research/post_alarm_realized_metrics.py` | 595  |
+| 14  | `research/news_newapi.py`                 | 578  |
+| 15  | `dash_app/ui/layout.py`                   | 572  |
+
+
+**项目总计** ≈ **37 000 L** Python 代码，分布在 132 个 `.py` 文件与 10 个核心目录中。

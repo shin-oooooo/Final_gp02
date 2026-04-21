@@ -1,0 +1,2 @@
+During the training period (2024-01-01 to 2026-01-31), the internal correlation between technology stocks (NVDA, MSFT, TSMC, etc.) is high (**red concentration**),
+The correlation between the technology group and the risk aversion group (TLT) is close to 0 or even negative (**Blue/White**).

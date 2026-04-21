@@ -1,0 +1,60 @@
+---
+description: Dash 静态 layout + callback Output 插槽契约（避免改了代码但前端看起来没变）
+globs: dash_app/**/*.py
+alwaysApply: false
+---
+
+# Dash Layout 与 Callback Output 插槽契约
+
+## 核心事实
+
+- `app.layout = build_full_layout(...)` 在进程**启动时一次性生成**；layout 源文件（如 `dash_app/ui/main_p*.py`）改完后**必须重启 Python 进程**才会生效。
+- 改 `callbacks/*.py` 或 `render/*.py`（回调触发时执行的代码）通常**不需要**重启，只需前端触发一次重新渲染。
+- 排查"改了代码前端没变"：先判断你改的是 **layout** 还是 **callback**。
+
+## 插槽 ID 即契约
+
+`Output("<id>", "<prop>")` 与 layout 里的组件 `id` 一一对应。**减少一个 Output 会破坏** `register_dashboard_pipeline_callbacks`：Dash 启动时即报 `KeyError`。
+
+- 想隐藏某图/某块：**保留 slot**，layout 外层包 `html.Div(style={"display": "none"})`；callback 继续输出一个空 `go.Figure()` 或 `html.Div()`。
+- 想真正移除：同批改完**所有**登记位置（清单见下）。
+
+## 移除一个 Output slot 的 7 处清单
+
+以移除 `p4-fig41-cos` 为例，以下位置必须**同一次提交**内同步：
+
+1. `dash_app/ui/main_p4.py` — 删除 layout 里的 `dcc.Graph(id="p4-fig41-cos", ...)`
+2. `dash_app/callbacks/dashboard_pipeline.py` — 删除 `Output("p4-fig41-cos", "figure")`
+3. `dash_app/dashboard_face_render.py` — 删除 return tuple 对应槽位
+4. `dash_app/render/contracts.py` — 从 `MainP4Components` 删除对应字段
+5. `dash_app/render/main_p4.py` — `build_main_p4_components(...)` 不再填该字段
+6. `dash_app/fig41/contracts.py` / `render.py` — 若 `Fig41Components.fig_tail_ratios` 成死代码则一并清理
+7. `dash_app/callbacks/research_panels.py` — 检查 `allow_duplicate=True` 的另一个 Output 路径
+
+## 组件类型与 children 兼容性
+
+- `dcc.Markdown(children=...)` 只接受**字符串**（markdown 源文本）；传入 `html.Div(...)` 会静默失败 / 显示源码。
+- 组件树槽位一律用 `html.Div(id=..., children=[...])`；字符串槽位才用 `dcc.Markdown`。
+
+❌ 反例
+```python
+# layout
+dcc.Markdown(id="p4-fig41-analysis-md")
+# callback
+return html.Div([Section2(), Section3(), ...])  # 前端空白
+```
+
+✅ 正例
+```python
+# layout
+html.Div(id="p4-fig41-analysis-md")
+# callback
+return html.Div([Section2(), Section3(), ...])  # OK
+```
+
+## 排障清单
+
+1. 改完代码前端没变 → 先问：layout 还是 callback？若 layout → 重启进程。
+2. 浏览器缓存 → Ctrl+F5 硬刷新。
+3. Dash 报 `Duplicate callback outputs` → 检查 `allow_duplicate=True` 的第二路径。
+4. 组件类型误用 → 组件树给 `dcc.Markdown` 是常见坑。

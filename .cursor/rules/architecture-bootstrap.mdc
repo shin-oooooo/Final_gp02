@@ -1,0 +1,14 @@
+---
+description: 新会话先读 ARCHITECTURE.md，快速建立 dash/research 全局心智模型
+alwaysApply: true
+---
+
+# 会话起始：架构快照
+
+在开始讨论或修改本项目代码前，**先读取**（必要时再局部检索源码）：
+
+`Final_gp02-main 4.18 night/dash_app/ARCHITECTURE.md`
+
+用途：弄清 **dash_app（UI / callbacks / render）↔ research（管线）↔ api** 的分层、`last-snap` Store -centric 约定，以及「保存并运行」链涉及的文件（如 `callbacks/dashboard_pipeline.py`、`pipeline_exec/`）。
+
+除非用户明确要求跳过，否则默认执行上述阅读后再动手改代码。

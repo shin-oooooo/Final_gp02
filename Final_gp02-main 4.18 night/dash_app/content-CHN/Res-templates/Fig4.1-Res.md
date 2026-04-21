@@ -1,0 +1,154 @@
+# Figure4.1 · 预警有效性检验（研究 · C 类）
+
+**对象类型（C）**：自研方法“提前量有效性”检验。Figure4.1 由两张子图组成，并且每张子图都叠加了同一套研究验证标注层：
+
+- **Figure 4.1a（JSD）**：滚动三角 JSD 应力时序 + 动态阈值 + `t_ref/t_alarm` 叠加层；
+- **Figure 4.1b（余弦）**：语义–数值滚动余弦时序（含 cos=0 线）+ `t_ref/t_alarm` 叠加层。
+
+该对象的研究口径是：在测试窗里选定一个“价格不稳参照日” t_{\mathrm{ref}}，并验证告警日 t_{\mathrm{alarm}} 是否满足**提前量** L=t_{\mathrm{ref}}-t_{\mathrm{alarm}}\in[1,5]（交易日）。若满足，则在图上绘制“有效提前蓝带”，同时绘制“告警后 1–5 日绿色观测窗”用于后验检验。
+
+本文与侧栏渲染模板对齐：`dash_app/render/explain/main_p4/fig41.py` · `build_fig41_explain_body(...)` 会注入占位符：  
+`{jsd_triangle_mean}`、`{jsd_stress_dyn_thr}`、`{jsd_stress}`、`{jsd_stress_no}`、`{jsd_baseline_mean}`、`{k_jsd}`、`{jsd_baseline_eps}`、`{cos_w}`、`{cosine}`、`{lb_cos}`、`{cosine_ge_zero}`、`{logic_break_total}`、`{early_warning_signals}`、`{early_warning_leads_md}`、`{early_warning_valid}`、`{research_failure_ref_label}`，以及通用字段 `{train_start}`、`{train_end}`、`{test_start}`、`{test_end}`、`{p0_symbols_csv}`、`{credibility}`。
+
+> **窗口口径统一**：`{cos_w}` = `DefensePolicyConfig.semantic_cosine_window`（默认 5 日）同时充当 JSD 应力的滚动窗 **W**（原 `n_jsd` 已废弃）与 FigX.6 语义–数值滚动余弦窗。侧栏「W 计算滚动窗口长度」即同一策略参数。
+
+占位符：`**{early_warning_valid}`** · `**{early_warning_signals}**` · `**{research_failure_ref_label}**`
+
+---
+
+## 1. 图形管线（端到端）
+
+```text
+Phase2 输出（底图）：
+  - FigX.5: test_daily_triangle_jsd_mean + τ_jsd → JSD 时序
+  - FigX.6: rolling cosine(S_t, μ̄*) → 余弦时序
+
+Phase3.defense_validation（研究验证字段）：
+  - fig41_ew_ref_test_row（t_ref 行序）
+  - fig41_ew_jsd_alarm_row / fig41_ew_cos_alarm_row（t_alarm 行序）
+  - fig41_ew_lead_effective_lo/hi（默认 1..5）
+
+Dash 绘图：
+  - fig_fig41_jsd_early_warning = FigX.5 基图 + apply_fig41_early_warning_overlay
+  - fig_fig41_cos_early_warning = FigX.6 基图 + apply_fig41_early_warning_overlay
+```
+
+---
+
+## 2. 自研算法逻辑架构（方法论核心）
+
+### 2.1 为什么要做“有效性检验”：预警不等于有效
+
+系统里很多信号都能“发出告警”，但研究问题是：**告警是否给出了可用的提前量**。Figure4.1 把“告警发生”与“告警是否提前于价格不稳参照日”分离：
+
+- **告警**：信号触发（JSD breach 或 cos<0）。
+- **有效**：告警在 t_{\mathrm{ref}} 之前 1–5 个交易日出现。
+
+这样才能把“信号本身”与“信号对实际风险的预测价值”区分开。
+
+### 2.2 三个核心时间点 / 区间
+
+- **t_{\mathrm{alarm}}**：首次告警日（JSD 与 余弦各自一条）。
+- **t_{\mathrm{ref}}**：价格不稳参照日（由管线研究逻辑从已实现收益中识别，并映射到 Phase2 的测试行序）。
+- **观测窗**：t_{\mathrm{alarm}}+1 到 t_{\mathrm{alarm}}+5（固定，用于后验指标/可视化一致性）。
+
+---
+
+## 3. 数据溯源与变量映射（Data Provenance）
+
+### 3.1 x 轴对齐口径
+
+两张子图的 x 轴都来自 Phase2 的测试日序列，但因为不同序列可能长度不一，绘图函数会按最短长度截断对齐（见 `dash_app/figures.py` 中 `_p2_jsd_chart_dates/_p2_cos_chart_dates`）。
+
+### 3.2 运行时注入字段（核心摘要）
+
+
+| 变量        | 注入值                                       |
+| --------- | ----------------------------------------- |
+| 参照日定义     | `**{research_failure_ref_label}`**        |
+| 是否存在有效提前量 | `**{early_warning_valid}**`               |
+| 提前量摘要     | `**{early_warning_signals}**`             |
+| 详细提前量     | `{early_warning_leads_md}`                |
+| JSD：是否应力  | `**{jsd_stress}**`（否时为 `{jsd_stress_no}`） |
+| 余弦：是否背离   | `**{lb_cos}**`（否时可看 `{cosine_ge_zero}`）   |
+
+
+---
+
+## 4. 算法执行链（The Execution Chain）
+
+
+| 序号  | 逻辑阶段     | 输入                     | 输出                    | 规则               | 代码锚点                                                    |
+| --- | -------- | ---------------------- | --------------------- | ---------------- | ------------------------------------------------------- |
+| 1   | 参照日识别    | 测试窗已实现收益               | `t_ref`（映射到 test_row） | 价格不稳操作化（见 label） | `research/pipeline.py:_failure_identification_research` |
+| 2   | 告警日（JSD） | `daily_tri` + 阈值       | `t_alarm_jsd`         | 首次滚动 breach      | 同上                                                      |
+| 3   | 告警日（余弦）  | `roll_cos`             | `t_alarm_cos`         | 首次 cos<0         | 同上                                                      |
+| 4   | 叠加层绘制    | `t_ref/t_alarm` + 日期列表 | 蓝带/绿带/竖线              | L∈[1,5] 才画蓝带     | `dash_app/figures.py:apply_fig41_early_warning_overlay` |
+| 5   | 子图输出     | FigX.5 / FigX.6 底图     | Fig4.1a / 4.1b        | 叠加层不改变底图值，只增加形状  | `dash_app/figures.py:fig_fig41_*_early_warning`         |
+
+
+---
+
+## 5. 图形叠加层元素语义（必须与最新实现一致）
+
+- **t_ref 竖线（黄）**：参照压力日（row=`fig41_ew_ref_test_row`）。
+- **t_alarm 竖线（粉）**：首次告警日（row=`fig41_ew_jsd_alarm_row` 或 `fig41_ew_cos_alarm_row`）。
+- **蓝色带**：当且仅当提前量 L\in[1,5] 时出现，表示“预警有效区”。
+- **绿色带**：告警后的第 1～5 个交易日（固定后验观测窗）。
+
+---
+
+## 6. 关键数据计算示例（重要数值）
+
+**Phase2 影子择模** 全库前提与择模表与 **`Figure2.1-Res.md` §6** 同源。下表与 **§6.1** 一致；**§6.2～§6.4** 的完整内容见 **`Figure2.1-Res.md` §6.2～§6.4**（不得与彼处数值冲突）。
+
+### 6.1 前提（与 Fig2.1 §6.1 同源）
+
+| 项目                                                   | 取值                                                                          |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| **`data.json` meta**                                 | **`source`** = `akshare`，`**generated_at`** = `2026-04-16T11:18:47.221640Z` |
+| **解析后训练窗（ISO）**                                      | **`2024-01-02`**～`**2026-01-30`**                                           |
+| **`shadow_holdout_days`**（cfg / 生效 **`n_tail_eff`**） | **40** / **40**                                                             |
+| **`alpha_model_select`**                             | **0.5**                                                                     |
+
+### 6.2 与 Fig4.1 的读法边界
+
+Fig4.1 叠加的 **预警/参照日** 由 **Phase3 研究字段** 与 **测试窗行号** 决定，**不**重算 `best_model_per_symbol`；择模数字仍只以 **`Figure2.1-Res.md` §6** 为准。
+
+---
+
+## 7. 一致性检验（可复现核对步骤）
+
+1. 核对 `t_ref/t_alarm` 的 row 都是合法测试行序（0 ≤ row < len(test_dates)）。
+2. 复算提前量 L，核对：
+  - 若 L\in[1,5]，图中应出现蓝色有效带；
+  - 否则不出现蓝带，但仍应有竖线（若 row 非空）。
+3. 核对绿色带：总是从 alarm+1 到 alarm+5（截断到测试窗尾部）。
+
+---
+
+## 8. 与其它对象的关系（职责边界）
+
+- **与 FigX.5 / FigX.6**：Fig4.1 不改变底图指标的计算，仅把“研究验证时间点”叠加到这些时序图上。
+- **与 Phase3.defense_validation**：Fig4.1 的核心证据来自 Phase3 写入的研究字段；没有这些字段，图最多只能显示底图无法检验“提前量有效性”。
+
+---
+
+## 9. 方法局限性
+
+- **参照日定义的可替代性**：`research_failure_ref_label` 当前采用一种“价格不稳操作化”规则；换一种规则（例如 MDD 突破、波动率分位更高/更低）会改变 t_{\mathrm{ref}}，从而改变有效性结论。
+- **提前量区间是工程选择**：[1,5] 是策略可操作窗口而非统计最优。不同交易频率/持仓周期可能需要不同区间。
+- **样本不足与截断**：当测试窗很短或序列缺失导致截断，对 t_{\mathrm{alarm}} 的定位会变得不稳定，从而影响有效性判断。
+- **“有效”不等于“足够”**：即便提前量落在 [1,5]，也不保证防御策略一定优于反事实；它只证明“告警发生在参照日前”，需要结合 Fig4.2 或后验指标进一步验证。
+
+---
+
+## Defense-Tag（If-Then 条件式）
+
+**If** `预警有效 = {early_warning_valid}` **Then**
+`Fig4.1: 预警有效（{early_warning_signals}），参照日定义：{research_failure_ref_label}`
+`severity: success`
+
+**Else**
+`Fig4.1: 未观测到有效提前量（需检查 t_ref 定义或信号触发是否过晚），参照日定义：{research_failure_ref_label}`
+`severity: warn`

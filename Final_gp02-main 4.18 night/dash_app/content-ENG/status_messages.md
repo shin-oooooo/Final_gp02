@@ -1,0 +1,97 @@
+# Status & Misc · runtime hints / placeholders / button text
+
+> Scattered runtime messages, placeholders and button strings. Ungrouped so
+> they stay easy to grep.
+
+idle_placeholder: "Not yet run: placeholder preview."
+level0_preview: "Market state Level 0 (preview)"
+level1_preview: "Market state Level 1 (preview)"
+level2_preview: "Market state Level 2 (preview)"
+pipeline_error: "Pipeline execution failed; check logs or click \"Re-run self-check\"."
+pipeline_error_title: "Pipeline run error:"
+computing: "Running full pipeline, please wait…"
+loading_dashboard: "Running full pipeline, please wait…"
+project_intro_fallback: "(Write the intro into `dash_app/content-ENG/project_intro.md`.)"
+
+figx_explain_prefix: "FigX.{fig_num} overview: {caption}"
+figx_explain_prefix_sb2: "FigX.{fig_num} · {caption}"
+figx_idle_reason: "{fig_lbl}: pipeline not executed → this variable has no effect on the current defense-level switch"
+figx_run_prompt: "Click **Save & Run** in the top bar; this slot will load `{md_inv}` / `{md_res}` and inject placeholders."
+
+health_check_title: "System self-check & feedback"
+health_check_desc: "Charts not showing? Run self-check first, then copy the report to the maintainer."
+health_check_btn: "Re-run self-check"
+feedback_placeholder: "Optional: describe what you observed (e.g. \"spinner never stops after clicking Recompute\")"
+copy_report_btn: "Copy report + notes"
+
+external_services_title: "External services (called by each Phase)"
+finance_news: "Finance news"
+rest_endpoints: "REST:"
+system_thought_title: "System Thought Process"
+dark_theme_label: "Dark theme"
+data_loading_title: "Loading data & charts"
+
+placeholder_st: "S_t"
+placeholder_h_struct: "Structural entropy"
+placeholder_vol_ac1: "Asset anomaly diagnostic"
+placeholder_consistency: "Consistency"
+placeholder_jsd: "JSD stress"
+placeholder_cosine: "Semantic divergence"
+
+no_asset_config: "No asset configuration"
+current_symbol_best_shadow: "Current symbol · shadow-validated best"
+best_model_fullsample: "Best on full sample (mean accuracy): "
+select_symbol_prompt: "Select a symbol to inspect μ, σ."
+p2_semantic_numeric_title: "Phase 2 · Test-window semantic–numeric consistency"
+pipeline_full_failure: " Full-pipeline failure"
+no_source_index: "(no source-code index)"
+
+per_asset_analysis_title: "Per-asset analysis & overall conclusion"
+methodological_constraints: "Methodological Constraints"
+research_snapshot_title: "Current snapshot (key scalars)"
+research_view_summary: "Research view · summary & index"
+best_model_per_symbol: "best_model_per_symbol (excerpt)"
+
+objective_switched: "Objective function switched: "
+objective_adjusted: "Objective function adjusted: "
+objective_label: "Objective function: "
+
+adf_log_p: "ADF log-return p: "
+diff_order_adf_p: "Diff order / ADF(final) p: "
+
+thought_process_hint: "Highlights the current reasoning stage as you switch tabs."
+asset_config_empty: "Asset configuration is empty"
+desc_placeholder: "(description pending)"
+
+p0_asset_guide: "Left: assets & statistical indicators (click a row to strike it; \"Apply\" recomputes with struck rows excluded; red \"Remove asset\" permanently removes struck rows). Portfolio weights default to equal; use the pie on the right to adjust."
+btn_add_asset: "Add asset"
+btn_remove_assets: "Remove assets"
+p0_strike_hint: "A struck row is temporarily excluded from the portfolio; \"Apply\" in the sidebar recomputes diagnostics and charts with the current strikes; \"Remove asset\" permanently removes struck rows."
+p0_pie_hint: "Equal-weight by default; click a sector to select a ticker, drag the slider multiple times, then click another sector or the left-side crosshair to change the target."
+p0_btn_pie_title: "Set as current weight-adjustment target (linked to the pie chart)"
+p0_weight_tooltip: "Weight {weight} (adjust via pie on the right)"
+p0_placeholder_pie: "Portfolio weights (editable by default)"
+
+research_intro_desc: "Same columns and chart slots as Invest mode; below is the **data pipeline, theory index and current snapshot** (each chart additionally has its own traceback tree)."
+research_acc_data_source: "Where data comes from"
+research_acc_credibility: "Phase 2: credibility vs Naive"
+research_acc_models: "Four models: how parameters are learned"
+research_acc_source: "Source-code index"
+research_no_snapshot: "No snapshot yet: open the sidebar **Defense strategy & parameter customization** and click **Run** (or **Apply** / **Apply & Recompute**) to populate the dashboard and charts."
+
+# ── Fig4.1 · Early-warning effectiveness 4-section panel ────────────────────
+fig41_hero_focus_label: "Current symbol: "
+fig41_hero_verdict_full: "　Result: {verdict} (hit {n_hit}/3)"
+fig41_hero_verdict_short: "　Result: {verdict}"
+fig41_section2_title: "Section 2: Dispersion cue (Std)"
+fig41_section2_std_lbl: "Cross-sectional Std (R^(5))"
+fig41_section2_vs_baseline: "{v}  vs  baseline {b}"
+fig41_section3_title: "Section 3: Large-drawdown dot matrix & ratio"
+fig41_section3_ratio_lbl: "Share of large-drawdown assets"
+fig41_section4_title: "Section 4: Heavy-tail dot matrix (5×N) & ratio"
+fig41_section4_ratio_lbl: "Heavy-tail-dot share (single day × single asset)"
+fig41_empty_daily_returns: "5 days post-alarm: no usable daily returns"
+fig41_empty_std_by_k: "Std (1–5 days post-alarm): no data"
+fig41_tail_left_label: "Left-tail share"
+fig41_tail_right_label: "Right-tail share"
+fig41_baseline_annotation: "Train baseline ≈ {b}"

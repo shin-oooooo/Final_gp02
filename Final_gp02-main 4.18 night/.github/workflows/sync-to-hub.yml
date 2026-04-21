@@ -1,0 +1,36 @@
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    environment: SHINO_TOKEN
+
+    steps:
+      - name: Checkout (with Git LFS — weights must be real files for HF upload)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Debug token presence
+        env:
+          HF_TOKEN: ${{ secrets.SHINO_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "SHINO_TOKEN secret is empty or not found"
+            exit 1
+          else
+            echo "Token is set, length=${#HF_TOKEN}"
+          fi
+
+      - name: Upload to Hugging Face Space via Python API
+        env:
+          HF_TOKEN: ${{ secrets.SHINO_TOKEN }}
+        run: |
+          pip install -q "huggingface_hub>=0.23"
+          python .github/scripts/upload_to_hf.py
