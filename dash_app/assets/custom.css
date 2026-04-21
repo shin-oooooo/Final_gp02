@@ -142,7 +142,7 @@ code, pre, .font-monospace, kbd, .mono {
   background: var(--bg-2);
   border-right: 1px solid var(--bdr);
   padding: 1rem 1rem 2rem;
-  min-height: 100vh;
+  min-height: 100%;
   font-family: 'Sora', system-ui, sans-serif !important;
 }
 /* 侧栏参数分块 */
@@ -380,7 +380,7 @@ input:focus, textarea:focus, .form-control:focus {
   }
 }
 .project-intro-body {
-  max-height: min(78vh, 920px);
+  max-height: min(78dvh, 920px);
   overflow-y: auto;
 }
 .project-intro-card .card-body {
@@ -388,7 +388,7 @@ input:focus, textarea:focus, .form-control:focus {
   padding-bottom: 0.85rem;
 }
 .sidebar-overview-body {
-  max-height: min(78vh, 920px);
+  max-height: min(78dvh, 920px);
   overflow-y: auto;
 }
 
@@ -548,7 +548,7 @@ input:focus, textarea:focus, .form-control:focus {
   flex-direction: column;
   align-items: stretch;
   gap: 0.35rem;
-  max-height: min(60vh, 360px);
+  max-height: min(60dvh, 360px);
   overflow: auto;
 }
 .param-help-card.is-visible {

@@ -445,7 +445,10 @@ def build_lang_aware_children(project_intro_md: str = "", loading_dashboard_md: 
     # 仍保留参数以便将来恢复。读一次以避免 unused-arg 警告。
     _ = loading_dashboard_md
 
-    col_scroll_style = {"overflowY": "auto", "height": "100vh"}
+    # Use 100% (not 100vh): HF Spaces / iframes treat `vh` as the outer browser
+    # viewport, so columns only get half the iframe height and the rest shows as
+    # empty black below the app body.
+    col_scroll_style = {"overflowY": "auto", "height": "100%"}
 
     return [
         _app_masthead(),
@@ -633,5 +636,5 @@ def build_full_layout(project_intro_md: str = "", loading_dashboard_md: str = ""
         fluid=True,
         className="p-3 phase-doc-scope app-mode-invest app-shell",
         id="app-mode-shell",
-        style={"overflow": "hidden", "height": "100vh"},
+        style={"overflow": "hidden", "height": "100%"},
     )
