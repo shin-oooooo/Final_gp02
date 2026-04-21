@@ -193,15 +193,43 @@ def _build_sb2_figures(state: DashboardState) -> Tuple[Any, Any, Any, Any, Any]:
 # --------------------------------------------------------------------------- #
 
 
+_IDLE_REASON_BODIES: Dict[str, str] = {
+    "st": "FigX.1: 未执行管线→当前变量对防御等级切换无影响",
+    "h_struct": "FigX.2: 未执行管线→当前变量对防御等级切换无影响",
+    "figx3": "FigX.3: 未执行管线→当前变量对防御等级切换无影响",
+    "consistency": "FigX.4: 未执行管线→当前变量对防御等级切换无影响",
+    "jsd": "FigX.5: 未执行管线→当前变量对防御等级切换无影响",
+    "cos": "FigX.6: 未执行管线→当前变量对防御等级切换无影响",
+}
+
+
 def _build_reason_strip(
     state: DashboardState,
     figx3_items: Tuple[List[Dict[str, str]], List[Dict[str, str]], List[Dict[str, str]]],
 ) -> Dict[str, Any]:
-    """6 条 reason（FigX.1-6，figx3 用于顶栏 reasons-collapse 复用）。"""
+    """6 条 reason（FigX.1-6，figx3 用于顶栏 reasons-collapse 复用）。
+
+    idle 态（``snap_json["_is_idle"] == True``）走占位分支：所有 6 张 reason
+    返回 success 级别的占位（"未执行管线→当前变量对防御等级切换无影响"），
+    避免因 ``h_struct=0`` / ``credibility=0`` 撞 FigX.2 / FigX.4 的 warn / danger
+    分支而被 Level 0 过滤掉、导致"运行前 X.2 / X.4 defense-tag 不显示"。
+    """
     from dash_app.render.explain import (
         figx1_condition_line, figx2_condition_line, figx3_condition_line,
         figx4_condition_line, figx5_condition_line, figx6_condition_line,
     )
+
+    lvl = state.defense_level
+
+    if bool(state.snap_json.get("_is_idle")):
+        filtered = {
+            f"{key}_reason": _reason_div(body, "success", lvl)
+            for key, body in _IDLE_REASON_BODIES.items()
+        }
+        return {
+            **filtered,
+            "_raw": {key: (body, "success") for key, body in _IDLE_REASON_BODIES.items()},
+        }
 
     adf_fail, vol, ac1 = figx3_items
 
@@ -224,7 +252,6 @@ def _build_reason_strip(
         logic_break_cos=bool(state.p2.get("logic_break_semantic_cosine_negative")),
     )
 
-    lvl = state.defense_level
     return {
         "st_reason": _reason_div(b1, s1, lvl),
         "h_struct_reason": _reason_div(b2, s2, lvl),
@@ -232,6 +259,16 @@ def _build_reason_strip(
         "consistency_reason": _reason_div(b4, s4, lvl),
         "jsd_reason": _reason_div(b5, s5, lvl),
         "cos_reason": _reason_div(b6, s6, lvl),
+        # 顶栏"严格只展示与当前防御等级严重度相符"的渲染走 raw 数据二次过滤；
+        # 顺序沿用 FigX.1 → FigX.6。
+        "_raw": {
+            "st": (b1, s1),
+            "h_struct": (b2, s2),
+            "figx3": (b3, s3),
+            "consistency": (b4, s4),
+            "jsd": (b5, s5),
+            "cos": (b6, s6),
+        },
     }
 
 
@@ -357,6 +394,7 @@ def build_sidebar_right_components(state: DashboardState) -> SidebarRightCompone
         figx4_explain=explains["figx4_explain"],
         figx5_explain=explains["figx5_explain"],
         figx6_explain=explains["figx6_explain"],
+        topbar_reason_raw=reasons.get("_raw", {}),
     )
     _trace("build_sidebar_right done")
     return out

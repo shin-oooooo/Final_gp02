@@ -97,7 +97,7 @@ phase_intro_card_header: "Introduction（MeToAI §2）"
 loading_card_title: "数据与图表加载中"
 loading_text: "正在计算…"
 loading_md_fallback: "正在计算全链路结果，请稍候…"
-project_intro_fallback: "（请将介绍写入 `dash_app/content/project_intro.md`。）"
+project_intro_fallback: "（请将项目综述写入 `dash_app/content-CHN/project_executive_summary.md`。）"
 placeholder_compute_prompt: "点击左侧「应用并重算」开始计算"
 inactive_variable_note: "{fig_lbl}: 未执行管线→当前变量对防御等级切换无影响"
 

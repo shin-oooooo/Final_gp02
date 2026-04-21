@@ -209,38 +209,39 @@ def register_app_shell_callbacks(app):
     def _ui_mode_visual(mode: Optional[str]):
         return _ui_mode_seg_btn_class(mode)
 
-    # 语言切换：**纯 clientside 一跳**。原先「按钮 → 服务器 `_lang_from_buttons` →
-    # Store → clientside → `lang-url-refresh.href`」多跳链路在首次点击存在明显延迟，
-    # 且偶发需要二次点击才能跳转。现在按钮点击直接：
-    #   1. 写 ``lang-store.data``（保持 active 态样式 via ``_lang_visual``）
-    #   2. 写 ``lang-url-refresh.href``（``refresh=True`` → 浏览器整页刷新）
-    # 刷新后 app.py 的 layout factory 读取 ``?lang=`` 并调用
-    # services.copy.set_language() 重新装载文案，与之前行为一致。
+    # 语言切换：**纯 clientside 一跳**，写 ``lang-store.data`` 并用
+    # ``history.replaceState`` 同步 URL 上的 ``?lang=`` 查询串（**不**触发整页刷新）。
+    # 实际的 UI 重建由下方服务端 callback ``_lang_rebuild_children`` 接管：
+    # 它监听 ``lang-store.data`` 变化，调用 ``services.copy.set_language()``
+    # 切换文案源，再用 ``ui.layout.build_lang_aware_children`` 重新构建可见 UI 子树
+    # （顶栏、左右侧栏、主栏面板、Modal）。``dcc.Store`` 与 ``dcc.Location`` 留在
+    # ``app-mode-shell`` 顶层，因此 ``last-snap`` / ``pipeline-render-ctx`` 等
+    # 运行状态不会被销毁。
     app.clientside_callback(
         """
         function(nc_chn, nc_eng) {
             var ctx = window.dash_clientside && window.dash_clientside.callback_context;
             if (!ctx || !ctx.triggered || !ctx.triggered.length) {
-                return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+                return window.dash_clientside.no_update;
             }
             var trig = ctx.triggered[0];
             if (!trig || !trig.value) {
-                return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+                return window.dash_clientside.no_update;
             }
             var tid = (trig.prop_id || '').split('.')[0];
             var target = (tid === 'btn-lang-eng') ? 'eng' : 'chn';
             var params = new URLSearchParams(window.location.search || '');
             var current = (params.get('lang') || '').toLowerCase();
-            if (current === target) {
-                return [target, window.dash_clientside.no_update];
+            // 同步 URL（便于收藏 / 分享 / 手动刷新仍记得语言），但不重新加载页面。
+            if (current !== target) {
+                params.set('lang', target);
+                var href = window.location.pathname + '?' + params.toString() + (window.location.hash || '');
+                try { window.history.replaceState({}, '', href); } catch (e) { /* ignore */ }
             }
-            params.set('lang', target);
-            var href = window.location.pathname + '?' + params.toString() + (window.location.hash || '');
-            return [target, href];
+            return target;
         }
         """,
         Output("lang-store", "data"),
-        Output("lang-url-refresh", "href"),
         Input("btn-lang-chn", "n_clicks"),
         Input("btn-lang-eng", "n_clicks"),
         prevent_initial_call=True,
@@ -254,6 +255,48 @@ def register_app_shell_callbacks(app):
     )
     def _lang_visual(lang: Optional[str]):
         return _lang_seg_btn_class(lang)
+
+    @app.callback(
+        Output("lang-aware-children", "children"),
+        Output("lang-rebuild-tick", "data"),
+        Input("lang-store", "data"),
+        State("lang-rebuild-tick", "data"),
+        prevent_initial_call=True,
+    )
+    def _lang_rebuild_children(lang: Optional[str], tick: Any):
+        """语言切换时**只重建** ``lang-aware-children`` 的 children，不刷新整页。
+
+        步骤：
+        1. 调用 :func:`services.copy.set_language` 切换 content 源目录并清空文案缓存。
+        2. 重新加载本语言的 ``project_executive_summary.md``（左栏"项目综述"卡正文
+           的唯一来源；topbar 标题另走 ``get_project_intro()``）。
+        3. 用 :func:`ui.layout.build_lang_aware_children` 构建新的 children 列表。
+        4. 同步原子地把 ``lang-rebuild-tick`` 自增，让下游
+           ``_render_dashboard_face`` / ``_caption_refresh_on_mode`` 在新组件挂载
+           **之后**重新填充图表与讲解卡（监听 tick 而非 ``lang-store`` 自己，可避免
+           竞争）。
+
+        所有 ``dcc.Store`` 留在外层 ``app-mode-shell``，因此 ``last-snap`` /
+        ``pipeline-render-ctx`` 等运行状态在此过程中始终保持。
+        """
+        from dash_app.services.copy import get_md_text, set_language
+        from dash_app.ui.layout import build_lang_aware_children
+
+        set_language(lang)
+        project_intro_md = get_md_text(
+            "project_executive_summary.md",
+            "（可将项目综述写入 `dash_app/content-CHN/project_executive_summary.md`。）",
+        )
+        loading_dashboard_md = get_md_text(
+            "loading_dashboard.md",
+            "正在计算全链路结果，请稍候…" if (lang or "chn") == "chn" else "Running full pipeline, please wait…",
+        )
+        new_children = build_lang_aware_children(project_intro_md, loading_dashboard_md)
+        try:
+            new_tick = int(tick or 0) + 1
+        except (TypeError, ValueError):
+            new_tick = 1
+        return new_children, new_tick
 
     @app.callback(
         Output("btn-kronos-pull", "children"),
@@ -357,14 +400,32 @@ def register_app_shell_callbacks(app):
         style_out = [(style_map.get(str(w_id.get("index"))) or {}) for w_id in (wrap_ids or [])]
         return is_open_out, style_out
 
+    # ``topbar-defense-reasons-collapse`` 现在是普通 Div（非 dbc.Collapse），
+    # 默认 ``display:none``；点击 ``topbar-defense-status-card``（"当前防御状态"
+    # 那整张横条）切换显示 / 隐藏。chevron 图标（fa-chevron-right ↔ fa-chevron-down）
+    # 同步变化以提示展开态。
     @app.callback(
-        Output("topbar-defense-reasons-collapse", "is_open"),
-        Input("btn-toggle-defense-reasons", "n_clicks"),
-        State("topbar-defense-reasons-collapse", "is_open"),
+        Output("topbar-defense-reasons-collapse", "style"),
+        Output("topbar-defense-status-chevron", "className"),
+        Input("topbar-defense-status-card", "n_clicks"),
+        State("topbar-defense-reasons-collapse", "style"),
         prevent_initial_call=True,
     )
-    def _toggle_topbar_reasons(n_clicks, is_open):
-        return not is_open if n_clicks else is_open
+    def _toggle_topbar_defense_reasons(n_clicks, current_style):
+        if not n_clicks:
+            raise PreventUpdate
+        cur = current_style if isinstance(current_style, dict) else {}
+        # 以 style.display 作为"是否展开"的事实源，避免额外 Store。
+        is_hidden = str(cur.get("display", "")).lower() == "none"
+        if is_hidden:
+            # 展开：抹掉 display，让默认 flex 布局生效
+            new_style = {k: v for k, v in cur.items() if k != "display"}
+            chevron_cls = "fa fa-chevron-down ms-2 topbar-defense-chevron expanded"
+        else:
+            new_style = dict(cur)
+            new_style["display"] = "none"
+            chevron_cls = "fa fa-chevron-right ms-2 topbar-defense-chevron"
+        return new_style, chevron_cls
 
     @app.callback(
         Output("topbar-hint-collapse", "is_open"),

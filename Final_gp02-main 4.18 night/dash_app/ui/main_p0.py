@@ -12,7 +12,7 @@ from dash_app.ui.layout import (
     _placeholder_fig,
 )
 from dash_app.constants import _CAT_LABELS
-from dash_app.services.copy import get_app_label, get_status_message
+from dash_app.services.copy import get_app_label, get_figure_title, get_status_message
 _CAT_COLORS = {"tech": "#4fc3f7", "hedge": "#ffa726", "safe": "#66bb6a", "benchmark": "#b0bec5"}
 _CATS = ["tech", "hedge", "safe", "benchmark"]
 
@@ -218,7 +218,6 @@ def main_p0_panel() -> html.Div:
         className="main-tab-panel",
         style={"display": "block"},
         children=[
-            html.Div(id="p0-noise-level", className="mb-2 invest-interpretation-block"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -280,7 +279,7 @@ def main_p0_panel() -> html.Div:
                                     className="invest-interpretation-block",
                                 ),
                             ],
-                            fig_label="Figure0.1",
+                            fig_label=get_figure_title("fig_0_1", "Figure 0.1 · 组合权重饼图"),
                         ),
                         width=12,
                     ),
@@ -298,7 +297,7 @@ def main_p0_panel() -> html.Div:
                                     figure=_placeholder_fig(),
                                 ),
                             ],
-                            fig_label="Figure0.2",
+                            fig_label=get_figure_title("fig_0_2", "Figure 0.2 · 相关性热力图"),
                         ),
                         id="p0-corr-col",
                         width=12,
@@ -328,7 +327,7 @@ def main_p0_panel() -> html.Div:
                                     figure=_placeholder_fig(),
                                 ),
                             ],
-                            fig_label="Figure0.3",
+                            fig_label=get_figure_title("fig_0_3", "Figure 0.3 · Beta 分布与区制对比"),
                         ),
                         id="p0-beta-col",
                         width=12,

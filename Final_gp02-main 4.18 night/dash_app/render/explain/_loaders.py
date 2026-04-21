@@ -21,9 +21,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 
-# 缓存键：(fig, suffix, lang)。语言切换不共享缓存。
-_FIGX_TEMPLATE_CACHE: Dict[Tuple[str, str, str], str] = {}
-_FIG4_TEMPLATE_CACHE: Dict[Tuple[str, str, str], str] = {}
+# 缓存键：(prefix, fig, suffix, lang)。语言切换不共享缓存；prefix（FigX/Fig4/Fig0…）
+# 必须出现在键里，否则 ``load_main_template(1, 1)`` 与 ``load_main_template(2, 1)``
+# 会因为 sub 都为 "1" 而误命中同一个 entry。
+_FIGX_TEMPLATE_CACHE: Dict[Tuple[str, str, str, str], str] = {}
+_FIG4_TEMPLATE_CACHE: Dict[Tuple[str, str, str, str], str] = {}
 
 # defense_reasons.md 解析缓存：lang → {fig_id: {branch_key: (body, severity)}}
 _DEFENSE_REASONS_CACHE: Dict[str, Dict[str, Dict[str, Tuple[str, str]]]] = {}
@@ -68,7 +70,7 @@ def _substitute_md(template: str, vm: Dict[str, Any]) -> str:
 
 
 def _load_mode_template(
-    cache: Dict[Tuple[str, str, str], str],
+    cache: Dict[Tuple[str, str, str, str], str],
     fig: str,
     ui_mode: Optional[str],
     prefix: str,
@@ -87,7 +89,7 @@ def _load_mode_template(
     subdir = "Res-templates" if suffix == "-Res.md" else "Inv"
     lang = _current_lang()
 
-    cache_key = (fig, suffix, lang)
+    cache_key = (prefix, fig, suffix, lang)
     if cache_key in cache:
         return cache[cache_key]
 
@@ -119,6 +121,25 @@ def load_figx_template(fig: str, ui_mode: Optional[str]) -> str:
 def load_fig4_template(fig: str, ui_mode: Optional[str]) -> str:
     """加载 ``content-{LANG}/{Inv|Res}/Fig4.<fig>{-Inv,-Res}.md``。"""
     return _load_mode_template(_FIG4_TEMPLATE_CACHE, fig, ui_mode, "Fig4")
+
+
+# Fig{phase}.{sub} 通用加载缓存（P0/P1/P2/P3 主栏讲解卡共用；按 prefix=Fig{phase} 区分）。
+_FIG_MAIN_TEMPLATE_CACHE: Dict[Tuple[str, str, str, str], str] = {}
+
+
+def load_main_template(phase: int | str, sub: int | str, ui_mode: Optional[str]) -> str:
+    """加载 ``content-{LANG}/{Inv|Res-templates}/Fig{phase}.{sub}{-Inv,-Res}.md``。
+
+    与 :func:`load_fig4_template` / :func:`load_figx_template` 同源；
+    主栏 P0/P1/P2/P3 的讲解卡用本接口，与侧栏 FigX/主栏 P4 共享同一约定，
+    避免再分散到 ``content/{basename}-Inv.md`` 这一旧入口。
+    """
+    p = int(str(phase).strip())
+    s = int(str(sub).strip())
+    # ``_load_mode_template`` 的命名格式为 ``f"{prefix}.{fig}{suffix}"``；
+    # 把整个 ``Fig{phase}`` 当作 prefix、``{sub}`` 当作 fig，最终落到
+    # ``Fig{phase}.{sub}-{Inv|Res}.md``，与 Inv/Res-templates 现有命名严格对齐。
+    return _load_mode_template(_FIG_MAIN_TEMPLATE_CACHE, str(s), ui_mode, f"Fig{p}")
 
 
 def _parse_block_content(content: str) -> Tuple[str, str]:

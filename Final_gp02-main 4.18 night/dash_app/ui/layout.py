@@ -66,6 +66,26 @@ def _fig_explain_title(phase: int, sub: int, caption: str) -> str:
     return fmt.format(phase=int(phase), sub=int(sub), caption=caption)
 
 
+def explain_title_from_figures(base_key: str, mode: Optional[str], default_inv: str) -> str:
+    """从 ``figures_titles.md`` 读主栏/侧栏讲解卡标题（按模式切换）。
+
+    研究模式优先读 ``{base_key}_res``（「数据、参数与方法论详情」），缺失时回退到
+    ``{base_key}``（「图表与方法简介」）；投资模式仅读 ``{base_key}``。两个键都缺失
+    时返回 ``default_inv``。
+
+    用法：
+        ``explain_title_from_figures("fig_2_1_explain", mode, "Figure2.1 讲解")``。
+    """
+    from dash_app.services.copy import get_figure_title
+
+    m = (mode or "invest").strip().lower()
+    if m == "research":
+        res_title = get_figure_title(f"{base_key}_res", "")
+        if res_title:
+            return res_title
+    return get_figure_title(base_key, default_inv)
+
+
 def _fmt_p(p: Any) -> str:
     if p is None:
         return "—"
@@ -255,8 +275,26 @@ def _ui_mode_seg_btn_class(mode: Optional[str]) -> Tuple[str, str]:
     return inv, res
 
 
-def _analysis_card(title: str, md: str) -> html.Div:
-    """投资向可折叠解读；研究+有快照时由 CSS 隐藏，由图下索引树承接。"""
+def _analysis_card(title: str, md: str, *, is_open: bool = False, md_slot_id: Optional[str] = None) -> html.Div:
+    """投资向可折叠解读；研究+有快照时由 CSS 隐藏，由图下索引树承接。
+
+    R4 行为：``is_open`` 默认 ``False``——**运行前**主栏 / 右侧栏所有讲解卡保持
+    收起；用户点击顶部按钮（或调用方显式传 ``is_open=True``）即可展开。折叠回调
+    由 ``callbacks/research_panels.py::_toggle_analysis`` 的 pattern-match
+    提供，单次点击切换本卡 ``is_open``。
+
+    ``md_slot_id``：若提供，则 Collapse 内的 Markdown 被包进
+    ``html.Div(id=md_slot_id)``，外部回调可**只更新该 slot** 而不触碰
+    ``analysis-toggle`` / ``analysis-collapse`` 的 id，从而避免 Dash 重复
+    id 引发的 pattern-match 回调失效（折叠按钮点不动）。
+    """
+    if md_slot_id:
+        body = html.Div(
+            dcc.Markdown(md, mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"}),
+            id=md_slot_id,
+        )
+    else:
+        body = dcc.Markdown(md, mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
     return html.Div(
         dbc.Card(
             [
@@ -267,16 +305,17 @@ def _analysis_card(title: str, md: str) -> html.Div:
                         color="link",
                         className="text-start w-100 p-0 phase-card-header-title",
                         n_clicks=0,
+                        style={"cursor": "pointer"},
                     ),
                     className="bg-transparent py-2",
                 ),
                 dbc.Collapse(
                     dbc.CardBody(
-                        dcc.Markdown(md, mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"}),
+                        body,
                         className="pt-2 pb-3",
                     ),
                     id={"type": "analysis-collapse", "index": title},
-                    is_open=False,
+                    is_open=bool(is_open),
                 ),
             ],
             className="mb-2 shadow-sm border-secondary phase-text-panel",
@@ -372,14 +411,17 @@ def _trace_inline_accordion(repo_root: str, snap_d: Dict[str, Any], trace_key: s
     return html.Div(acc, className="trace-inline-wrap")
 
 
-def build_full_layout(project_intro_md: str = "", loading_dashboard_md: str = "", lang: str = "chn") -> Any:
-    """Assemble the full application layout from modular UI components.
+def build_lang_aware_children(project_intro_md: str = "", loading_dashboard_md: str = "") -> List[Any]:
+    """Build the language-dependent visible UI subtree (masthead + body row + modal).
+
+    与 :func:`build_full_layout` 配合：所有 ``dcc.Store`` / ``dcc.Location`` 留在
+    外层容器，本函数只产出会随语言切换重建的 children。语言切换由
+    ``callbacks/app_shell.py`` 监听 ``lang-store.data`` 后调用 ``set_language(lang)``，
+    再调用本函数刷新 ``html.Div(id="lang-aware-children")`` 的 children。
 
     Args:
-        project_intro_md: 项目综述 Markdown 文本（从 ``content-{LANG}/project_intro.md`` 读入）。
+        project_intro_md: 项目综述 Markdown 文本。
         loading_dashboard_md: 加载态提示 Markdown 文本。
-        lang: 当前语言 ``"chn"`` / ``"eng"``，写入 ``lang-store`` 的初值；顶栏按钮
-            切换后由 clientside callback 通过 ``?lang=`` 刷新页面重新注入。
     """
     from dash_app.ui.topbar import _app_masthead
     from dash_app.ui.sidebar_left import _sidebar_params_settings_card
@@ -390,18 +432,166 @@ def build_full_layout(project_intro_md: str = "", loading_dashboard_md: str = ""
     from dash_app.ui.main_p3 import main_p3_panel
     from dash_app.ui.main_p4 import main_p4_panel
     from dash_app.ui.modals import modal_add_asset
-    from research.schemas import DefensePolicyConfig
 
+    # 「项目综述」卡片正文来源（左栏「研究项目综述」tab 内）。
+    # 历史上读 ``project_intro.md``，R2 起改读 ``project_executive_summary.md``——
+    # 前者的 YAML frontmatter 还在 topbar 用（``get_project_intro()`` 取 title），
+    # 此处只使用正文。缺失时退回 ``all_labels.md::project_intro_fallback`` 的友好提示。
     _project_intro_md = project_intro_md or get_app_label(
         "project_intro_fallback",
-        "（请将介绍写入 `dash_app/content/project_intro.md`。）",
+        "（请将项目综述写入 `dash_app/content-CHN/project_executive_summary.md`。）",
     )
-    _loading_md = loading_dashboard_md or get_app_label(
-        "loading_md_fallback",
-        "正在计算全链路结果，请稍候…",
-    )
+    # NOTE: ``loading_dashboard_md`` 当前不参与渲染（dcc.Loading 用 spinner 而非该 md），
+    # 仍保留参数以便将来恢复。读一次以避免 unused-arg 警告。
+    _ = loading_dashboard_md
 
     col_scroll_style = {"overflowY": "auto", "height": "100vh"}
+
+    return [
+        _app_masthead(),
+        dbc.Row(
+            [
+                # Sidebar 1: Parameters
+                dbc.Col(
+                    [
+                        html.Div(
+                            [
+                                dbc.Button(
+                                    get_app_label("sidebar_collapse_toggle_label", "<<"),
+                                    id="btn-sidebar1-toggle",
+                                    color="secondary",
+                                    outline=True,
+                                    size="sm",
+                                    className="sidebar1-toggle-btn",
+                                    n_clicks=0,
+                                ),
+                            ],
+                            className="sidebar1-toggle-strip",
+                        ),
+                        html.Div(
+                            className="sidebar-scroll-inner sidebar1-scroll-inner",
+                            children=[
+                                dcc.Tabs(
+                                    id="sidebar-tabs",
+                                    value="side-params",
+                                    className="custom-tabs mb-2",
+                                    parent_className="custom-tabs",
+                                    children=[
+                                        dcc.Tab(
+                                            label=get_app_label("sidebar_tab_overview_label", "研究项目综述"),
+                                            value="side-overview",
+                                            className="custom-tab",
+                                            children=[
+                                                html.Div(
+                                                    id="sidebar-overview-cards-container",
+                                                    style={"display": "flex", "flexDirection": "column"},
+                                                    children=[
+                                                        _overview_card(
+                                                            "project",
+                                                            get_topbar_label("overview_project_title", "项目综述"),
+                                                            _project_intro_md,
+                                                            is_open_default=True,
+                                                        ),
+                                                        _overview_card("p0", get_topbar_label("overview_p0_title", "P0 · 资产与研究前提"), me_phase0_intro_md(*_p0_resolved_window_strings(None)), md_id="p0-intro-me-md"),
+                                                        _overview_card("p1", get_topbar_label("overview_p1_title", "P1 · 数据诊断"), ME_PHASE1_INTRO),
+                                                        _overview_card("p2", get_topbar_label("overview_p2_title", "P2 · 信号对抗"), ME_PHASE2_INTRO),
+                                                        _overview_card("p3", get_topbar_label("overview_p3_title", "P3 · 自动防御"), ME_PHASE3_INTRO),
+                                                        _overview_card("p4", get_topbar_label("overview_p4_title", "P4 · 实验结论"), ME_PHASE4_INTRO),
+                                                    ],
+                                                ),
+                                            ],
+                                        ),
+                                        dcc.Tab(
+                                            label=get_app_label("sidebar_tab_params_label", "防御策略与参数自定义"),
+                                            value="side-params",
+                                            className="custom-tab",
+                                            children=[
+                                                _sidebar_params_settings_card(),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ],
+                    xs=12, md=3, lg=2,
+                    id="sidebar1-col",
+                    className="mb-0 order-3 order-lg-1 sidebar1-col dash-three-col h-100",
+                    style=col_scroll_style,
+                ),
+                # Sidebar 2: Defense Dashboard
+                sidebar_right_column(),
+                # Main area
+                dbc.Col(
+                    html.Div(
+                        dcc.Loading(
+                            id="loading-main",
+                            type="circle",
+                            color="#5cc6ff",
+                            delay_show=120,
+                            delay_hide=200,
+                            # NOTE: 不使用 custom_spinner，避免 Loading 用 spinner 替换
+                            # children 导致主面板在加载时整块塌陷。`overlay_style` 让
+                            # spinner 浮在 children 之上、保留底层布局尺寸。
+                            # `show_initially=False` 是关键：初次进入页面时，
+                            # dcc.Loading 不会默认渲染 spinner（默认为 True），否则
+                            # 在 children 仍未被 callback 填充前就会呈现“半屏”效果。
+                            show_initially=False,
+                            overlay_style={
+                                "visibility": "visible",
+                                "opacity": 0.35,
+                                "backgroundColor": "rgba(0,0,0,0.18)",
+                                "pointerEvents": "none",
+                            },
+                            parent_className="main-loading-parent",
+                            parent_style={"minHeight": "100%", "height": "100%"},
+                            children=[
+                                html.Div(id="header-status", className="mb-2"),
+                                html.Div(
+                                    id="main-panels-root",
+                                    className="main-panels-root custom-tabs mb-2",
+                                    children=[
+                                        main_p0_panel(),
+                                        main_p1_panel(),
+                                        main_p2_panel(),
+                                        main_p3_panel(),
+                                        main_p4_panel(),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        className="main-scroll-clip",
+                    ),
+                    xs=12, md=4, lg=5,
+                    className="order-1 order-lg-3 main-dashboard-col dash-three-col",
+                    style=col_scroll_style,
+                ),
+            ],
+            id="dash-body-three-col-row",
+            className="g-0 align-items-stretch dashboard-three-col-row app-body-row",
+        ),
+        modal_add_asset(),
+    ]
+
+
+def build_full_layout(project_intro_md: str = "", loading_dashboard_md: str = "", lang: str = "chn") -> Any:
+    """Assemble the full application layout from modular UI components.
+
+    顶层结构（重要）：所有 ``dcc.Store`` / ``dcc.Location`` 都是 ``app-mode-shell``
+    的直接子节点，不会随语言切换被销毁——保证 ``last-snap`` /
+    ``pipeline-render-ctx`` 等运行状态在切换中文 / 英文时不丢失。所有会被语言切换
+    覆盖文案的可见 UI（顶栏、左右侧栏、主栏面板、Modal）封装在
+    ``html.Div(id="lang-aware-children")`` 内，由 :func:`build_lang_aware_children`
+    构建；语言切换时由 ``callbacks/app_shell.py`` 重新调用本函数对应的子函数
+    刷新 children（不再走整页 reload）。
+
+    Args:
+        project_intro_md: 项目综述 Markdown 文本（从 ``content-{LANG}/project_intro.md`` 读入）。
+        loading_dashboard_md: 加载态提示 Markdown 文本。
+        lang: 当前语言 ``"chn"`` / ``"eng"``，写入 ``lang-store`` 的初值；顶栏按钮
+            切换后由 clientside callback 写回 ``lang-store``，服务端再重建 children。
+    """
+    from research.schemas import DefensePolicyConfig
 
     return dbc.Container(
         [
@@ -423,130 +613,22 @@ def build_full_layout(project_intro_md: str = "", loading_dashboard_md: str = ""
             dcc.Store(id="download-btn-state-store", data="idle"),
             dcc.Store(id="run-btn-state-store", data="idle"),
             dcc.Store(id="lang-store", data=(lang if lang in ("chn", "eng") else "chn")),
-            dcc.Location(id="lang-url-refresh", refresh=True),
-            _app_masthead(),
-            dbc.Row(
-                [
-                    # Sidebar 1: Parameters
-                    dbc.Col(
-                        [
-                            html.Div(
-                                [
-                                    dbc.Button(
-                                        get_app_label("sidebar_collapse_toggle_label", "<<"),
-                                        id="btn-sidebar1-toggle",
-                                        color="secondary",
-                                        outline=True,
-                                        size="sm",
-                                        className="sidebar1-toggle-btn",
-                                        n_clicks=0,
-                                    ),
-                                ],
-                                className="sidebar1-toggle-strip",
-                            ),
-                            html.Div(
-                                className="sidebar-scroll-inner sidebar1-scroll-inner",
-                                children=[
-                                    dcc.Tabs(
-                                        id="sidebar-tabs",
-                                        value="side-params",
-                                        className="custom-tabs mb-2",
-                                        parent_className="custom-tabs",
-                                        children=[
-                                            dcc.Tab(
-                                                label=get_app_label("sidebar_tab_overview_label", "研究项目综述"),
-                                                value="side-overview",
-                                                className="custom-tab",
-                                                children=[
-                                                    html.Div(
-                                                        id="sidebar-overview-cards-container",
-                                                        style={"display": "flex", "flexDirection": "column"},
-                                                        children=[
-                                                            _overview_card(
-                                                                "project",
-                                                                get_topbar_label("overview_project_title", "项目综述"),
-                                                                _project_intro_md,
-                                                                is_open_default=True,
-                                                            ),
-                                                            _overview_card("p0", get_topbar_label("overview_p0_title", "P0 · 资产与研究前提"), me_phase0_intro_md(*_p0_resolved_window_strings(None)), md_id="p0-intro-me-md"),
-                                                            _overview_card("p1", get_topbar_label("overview_p1_title", "P1 · 数据诊断"), ME_PHASE1_INTRO),
-                                                            _overview_card("p2", get_topbar_label("overview_p2_title", "P2 · 信号对抗"), ME_PHASE2_INTRO),
-                                                            _overview_card("p3", get_topbar_label("overview_p3_title", "P3 · 自动防御"), ME_PHASE3_INTRO),
-                                                            _overview_card("p4", get_topbar_label("overview_p4_title", "P4 · 实验结论"), ME_PHASE4_INTRO),
-                                                        ],
-                                                    ),
-                                                ],
-                                            ),
-                                            dcc.Tab(
-                                                label=get_app_label("sidebar_tab_params_label", "防御策略与参数自定义"),
-                                                value="side-params",
-                                                className="custom-tab",
-                                                children=[
-                                                    _sidebar_params_settings_card(),
-                                                ],
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                        ],
-                        xs=12, md=3, lg=2,
-                        id="sidebar1-col",
-                        className="mb-0 order-3 order-lg-1 sidebar1-col dash-three-col h-100",
-                        style=col_scroll_style,
-                    ),
-                    # Sidebar 2: Defense Dashboard
-                    sidebar_right_column(),
-                    # Main area
-                    dbc.Col(
-                        html.Div(
-                            dcc.Loading(
-                                id="loading-main",
-                                type="circle",
-                                color="#5cc6ff",
-                                delay_show=120,
-                                delay_hide=200,
-                                # NOTE: 不使用 custom_spinner，避免 Loading 用 spinner 替换
-                                # children 导致主面板在加载时整块塌陷。`overlay_style` 让
-                                # spinner 浮在 children 之上、保留底层布局尺寸。
-                                # `show_initially=False` 是关键：初次进入页面时，
-                                # dcc.Loading 不会默认渲染 spinner（默认为 True），否则
-                                # 在 children 仍未被 callback 填充前就会呈现“半屏”效果。
-                                show_initially=False,
-                                overlay_style={
-                                    "visibility": "visible",
-                                    "opacity": 0.35,
-                                    "backgroundColor": "rgba(0,0,0,0.18)",
-                                },
-                                parent_className="main-loading-parent",
-                                parent_style={"minHeight": "100%", "height": "100%"},
-                                children=[
-                                    html.Div(id="diagnostic-summary", className="mb-2"),
-                                    html.Div(id="header-status", className="mb-2"),
-                                    html.Div(
-                                        id="main-panels-root",
-                                        className="main-panels-root custom-tabs mb-2",
-                                        children=[
-                                            main_p0_panel(),
-                                            main_p1_panel(),
-                                            main_p2_panel(),
-                                            main_p3_panel(),
-                                            main_p4_panel(),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                            className="main-scroll-clip",
-                        ),
-                        xs=12, md=4, lg=5,
-                        className="order-1 order-lg-3 main-dashboard-col dash-three-col",
-                        style=col_scroll_style,
-                    ),
-                ],
-                id="dash-body-three-col-row",
-                className="g-0 align-items-stretch dashboard-three-col-row app-body-row",
+            # ``lang-rebuild-tick`` 由语言切换回调原子地与 ``lang-aware-children``
+            # 同步写入；下游需要在语言重建之后才覆盖 UI 的回调（如 ``_caption_refresh_on_mode``、
+            # ``_render_dashboard_face``）监听本 tick 而非 ``lang-store`` 本身，
+            # 避免与 children 重建发生竞争。
+            dcc.Store(id="lang-rebuild-tick", data=0),
+            # ``display: contents`` 让本 Div 在布局盒树里"隐形"：它的 children
+            # 仍然被 CSS 当作 ``.app-shell`` 的直接子节点，因此 ``custom.css``
+            # 里 ``.app-shell > .row.app-body-row { flex: 1 1 0%; min-height: 0 }``
+            # 这条直接子级选择器依然生效，三栏各自的 ``overflowY: auto`` 滚动条
+            # 才能正常出现。**不要**给本 Div 加 height / overflow / padding，
+            # 否则会破坏外层 flex 布局链路。
+            html.Div(
+                id="lang-aware-children",
+                style={"display": "contents"},
+                children=build_lang_aware_children(project_intro_md, loading_dashboard_md),
             ),
-            modal_add_asset(),
         ],
         fluid=True,
         className="p-3 phase-doc-scope app-mode-invest app-shell",

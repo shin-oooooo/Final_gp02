@@ -6,3 +6,4 @@
 4. **防御等级**：顶栏徽章显示当前 Level（0/1/2），点击右侧 ↓ 可展开查看各防御条件汇总。
 5. **三栏布局**：左栏调参数，中栏看主图，右栏看防御指标。
 6. **自定义资产**：左栏 P0 面板可增删标的、调整权重，点击「应用」后重算。
+7. **Hugging Face Space 上的新闻情绪**：HF 容器内很难装 Crawl4AI（Chromium + Playwright 依赖链复杂且易触发 IP 反爬），所以 HF 部署默认**不现场爬新闻**，而是**回放仓库里已经提交的 `news_fetch_log.json` / `news_fetch_log_premerge.json`** 作为情绪分输入（由 `research/sentiment/sources_cache.py` 自动识别 HF 的 `SPACE_ID` 环境变量触发）。若想在本地强制走同样的回放：设 `LREPORT_NEWS_USE_CACHE=1`；想强制关闭回放：`LREPORT_NEWS_USE_CACHE=0`。更新情绪数据的流程是**本地跑一次全链路 → 提交更新后的两个 JSON → 推到 Space 仓库**。

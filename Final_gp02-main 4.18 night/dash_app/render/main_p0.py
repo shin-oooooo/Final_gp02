@@ -1,9 +1,13 @@
-"""主栏 P0 渲染 — 资产相关性 / Beta / 环境报告 / 诊断汇总。
+"""主栏 P0 渲染 — 资产相关性 / Beta / 环境报告。
 
-**9 个槽位**（对应 ``ui/main_p0.py`` 骨架）：
-diagnostic-summary, header-status, fig-p0-corr, fig-p0-beta,
+**7 个槽位**（对应 ``ui/main_p0.py`` 骨架）：
+header-status, fig-p0-corr, fig-p0-beta,
 p0-heatmap-text, p0-beta-text-stack, p0-asset-class-analysis,
-p0-noise-level, about-phase0-logic
+about-phase0-logic
+
+历史上的 ``diagnostic-summary``（系统级诊断 headline）与 ``p0-noise-level``
+（Defense-Tag 噪声级说明）已从主栏删除，等价信息由顶栏 defense-tag +
+侧栏 FigX 诊断承担，避免重复显示。
 """
 
 from __future__ import annotations
@@ -28,30 +32,6 @@ def _trace(msg: str, *args: Any) -> None:
             print(f"[main_p0] {msg % args}" if args else f"[main_p0] {msg}")
         except Exception:
             pass
-
-
-def _build_diagnostic_alert(state: DashboardState) -> Any:
-    """系统诊断警告条（面板顶部横幅）。"""
-    from dash_app.render.explain import system_diagnosis_headline
-    from research.defense_state import any_adf_asset_failure
-
-    color = "danger" if state.defense_level >= 2 else (
-        "warning" if state.defense_level == 1 or bool(state.p2.get("jsd_stress")) else "info"
-    )
-    return dbc.Alert(
-        system_diagnosis_headline(
-            state.defense_level,
-            bool(state.p2.get("jsd_stress")),
-            state.jsd_tri,
-            state.jsd_thr,
-            any_adf_asset_failure(state.diagnostics),
-            state.h_struct,
-            state.tau_h1,
-            prob_full_pipeline_failure=bool(state.p2.get("prob_full_pipeline_failure")),
-        ),
-        color=color,
-        className="py-2 mb-0 border-0",
-    )
 
 
 def _build_fig_correlation(state: DashboardState) -> Any:
@@ -154,17 +134,6 @@ def _build_asset_class_card(state: DashboardState) -> Any:
     )
 
 
-def _build_noise_level_card(state: DashboardState) -> Any:
-    """P0 防御原因 tag（噪声级）卡片。"""
-    from dash_app.dash_ui_helpers import _p0_defense_reason_tag_html
-
-    reason_html = _p0_defense_reason_tag_html(
-        state.env, state.defense_level, state.snap_json,
-        state.p1, state.p2, state.policy,
-    )
-    return html.Div([reason_html], className="mb-2 invest-interpretation-block")
-
-
 def _build_about_p0(state: DashboardState) -> Any:
     """Phase 0 逻辑说明 Alert。"""
     from dash_app.render.explain import about_phase0_logic
@@ -186,14 +155,12 @@ def build_main_p0_components(state: DashboardState) -> MainP0Components:
     _trace("build_main_p0 start symbols=%d", len(state.symbols))
 
     out = MainP0Components(
-        diag_alert=_build_diagnostic_alert(state),
         header=html.Div(),
         fig_corr=_build_fig_correlation(state),
         fig_beta=_build_fig_beta(state),
         p0_heatmap_text=_build_heatmap_text_panel(state),
         p0_beta_text_stack=_build_beta_text_stack(state),
         p0_asset_class_analysis=_build_asset_class_card(state),
-        noise_level_card=_build_noise_level_card(state),
         about_p0=_build_about_p0(state),
     )
     _trace("build_main_p0 done")

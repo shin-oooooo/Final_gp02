@@ -87,27 +87,34 @@ def register_p2_symbol_callbacks(app):
         return html.Span(s or "—", className="display-6 fw-bold text-info")
 
     # ------------------------------------------------------------------ #
-    # p4-verify-search 选项与初始值同步（搬自 P2 下拉，保持全站标的一致）
+    # Fig4.1a / Fig4.1b 独立搜索框同步
+    #   * ``p4-verify-search`` 驱动 Fig4.1a（模型—模型）的 focus_override
+    #   * ``p4-verify-search-b`` 驱动 Fig4.1b（模型应力—市场载荷方向）
     # ------------------------------------------------------------------ #
-    @app.callback(
-        Output("p4-verify-search", "options"),
-        Output("p4-verify-search", "value"),
-        Input("symbols-store", "data"),
-        Input("p2-symbol", "value"),
-        prevent_initial_call=False,
-    )
-    def _sync_p4_search(symbols: Any, p2_val: Optional[str]):
-        """p4-verify-search 的 options 复用 p2-symbol 的标的列表；value 默认跟随 p2。
-
-        用户在 4.1a 顶部搜索后，callback 链路：
-        ``p4-verify-search.value → dashboard_pipeline._run_pipeline_stores(p4_search=…)
-        → p2_sel 覆盖 → render_dashboard_outputs(p2_sym_state=p2_sel)`` 最终进入
-        ``render/main_p4._build_fig41_for_signal(focus_override=…)``。
-        """
-        if not isinstance(symbols, list):
-            symbols = []
-        opts: List[Dict[str, str]] = [{"label": str(s), "value": str(s)} for s in symbols]
-        val = p2_val if (isinstance(p2_val, str) and p2_val in [o["value"] for o in opts]) else (
-            opts[0]["value"] if opts else None
+    def _sync_verify_search_factory(out_id: str):
+        @app.callback(
+            Output(out_id, "options"),
+            Output(out_id, "value"),
+            Input("symbols-store", "data"),
+            Input("p2-symbol", "value"),
+            State(out_id, "value"),
+            prevent_initial_call=False,
         )
-        return opts, val
+        def _sync(symbols: Any, p2_val: Optional[str], cur_val: Optional[str]):
+            """``options`` 与 ``symbols-store`` 同步；``value`` 的初始值跟随 ``p2-symbol``，
+            但**已由用户在本框内手动改过的值保留**（不会因为 p2 再变动而被覆盖），这样
+            两张图才能相互独立：用户改 4.1a 时不会误把 4.1b 的选择拉走。
+            """
+            if not isinstance(symbols, list):
+                symbols = []
+            opts: List[Dict[str, str]] = [{"label": str(s), "value": str(s)} for s in symbols]
+            opt_vals = [o["value"] for o in opts]
+            if isinstance(cur_val, str) and cur_val in opt_vals:
+                return opts, cur_val
+            if isinstance(p2_val, str) and p2_val in opt_vals:
+                return opts, p2_val
+            return opts, (opts[0]["value"] if opts else None)
+        return _sync
+
+    _sync_verify_search_factory("p4-verify-search")
+    _sync_verify_search_factory("p4-verify-search-b")

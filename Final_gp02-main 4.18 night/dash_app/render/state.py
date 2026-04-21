@@ -76,6 +76,8 @@ def extract_dashboard_state(
     theme: Optional[str],
     p2_sym_state: Optional[str],
     ui_mode: Optional[str],
+    p4_focus_a: Optional[str] = None,
+    p4_focus_b: Optional[str] = None,
 ) -> DashboardState:
     """从快照 + 参数构造 :class:`DashboardState`（不可变，一次到位）。"""
     assert isinstance(snap_json, dict), (
@@ -141,6 +143,8 @@ def extract_dashboard_state(
         ui_mode=ui_mode,
         tpl=tpl,
         p2_sym_state=p2_sym_state,
+        p4_focus_a=p4_focus_a,
+        p4_focus_b=p4_focus_b,
         json_path=json_path,
         objective_name=objective_name,
         train_start=train_start, train_end=train_end,

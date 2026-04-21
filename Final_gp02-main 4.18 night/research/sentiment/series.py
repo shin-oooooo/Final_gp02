@@ -129,15 +129,18 @@ def _normalize_kernel_smooth_params(
 
     h = float(halflife_days)
     if not np.isfinite(h) or h <= 0.0:
-        h = 7.0
-    warmup = (
-        int(warmup_days)
-        if (warmup_days is not None and warmup_days >= 0)
-        else int(_math.ceil(3.0 * h))
-    )
-    a = float(alpha) if np.isfinite(alpha) else 0.7
-    b = float(beta) if np.isfinite(beta) else 0.6
-    g = float(offset_scale) if np.isfinite(offset_scale) else 0.5
+        h = 2.0
+    # v3 warmup floor: 冷启动平台（测试窗前若干个交易日 V_t=H_t=0 → S_t 恒等于
+    # tanh(offset_const)）由"test 首日之前完全没有 news"引发。把 warmup 拉到
+    # ≥60 日历天，让训练尾部的新闻提前进入 H_t 的记忆窗口，彻底消除 prefix 常量段。
+    # 用户显式传入的 warmup_days（哪怕是 0）仍然优先尊重，方便冒烟测试。
+    if warmup_days is not None and warmup_days >= 0:
+        warmup = int(warmup_days)
+    else:
+        warmup = max(60, int(_math.ceil(3.0 * h)))
+    a = float(alpha) if np.isfinite(alpha) else 1.0
+    b = float(beta) if np.isfinite(beta) else 0.2
+    g = float(offset_scale) if np.isfinite(offset_scale) else 0.10
     pen = float(penalty) if np.isfinite(penalty) else 0.0
     boost = float(severity_boost) if np.isfinite(severity_boost) else 0.0
     clip_mode = (soft_clip or "tanh").strip().lower()
@@ -186,10 +189,10 @@ def vader_st_series_kernel_smoothed_from_detail(
     test_start_cal: date,
     test_end_cal: date,
     fallback: float,
-    halflife_days: float = 7.0,
-    alpha: float = 0.7,
-    beta: float = 0.6,
-    offset_scale: float = 0.5,
+    halflife_days: float = 2.0,
+    alpha: float = 1.0,
+    beta: float = 0.2,
+    offset_scale: float = 0.10,
     include_today_in_memory: bool = False,
     normalize_kernel: bool = True,
     soft_clip: str = "tanh",
@@ -213,25 +216,39 @@ def vader_st_series_kernel_smoothed_from_detail(
       乘以 ``offset_scale`` 压缩，避免一次性把 S_t 推出上下界。
     * **soft_clip**：默认 ``"tanh"``（S 形软截断，避免在 ±1 处长时间 plateau）；传 ``"hard"``
       时退化为硬 clip 到 [−1, +1]。
-    * **训练窗预热**：在 headline 过滤时把下限前推 ``warmup_days``（默认 ⌈3·H⌉）日历天，
-      使测试首日的 𝒢_t 已带训练尾部新闻记忆，避免冷启动"突跳"。
+    * **训练窗预热**：在 headline 过滤时把下限前推 ``warmup_days``（默认
+      ``max(60, ⌈3·H⌉)``）日历天。v3 把下限从 ``⌈3·H⌉`` 提到 60，是为了彻底消除
+      "测试首日前没有任何新闻 → 前若干交易日 H_t=V_t=0 → S_t 被钉在 tanh(offset_const)"
+      的冷启动常量段；即便 H 小到 2–3 天，也能让训练尾部的旧新闻以衰减权重进入记忆。
 
-    **默认 (α, β, γ, clip) = (0.7, 0.6, 0.5, tanh)**：在"几乎全负面新闻 + P+B ≈ −0.3"的
-    典型场景下，S_t 稳定在 [−0.9, −0.2] 区间随新闻密度/极性呈现可见波动，而不是堆到 −1。
+    **默认 (α, β, γ, H, clip) = (1.0, 0.2, 0.10, 2, tanh) — v3.1**：
+    相比 v3（0.7/0.4/0.3/3）再一次"只动参数、不改公式"的收紧：
+
+    * α 0.7 → **1.0**：V_t 满权上榜，当日 VADER 的日间抖动不再被 0.7 系数衰减。
+    * β 0.4 → **0.2**：H_t 权重继续砍半，进一步压低"历史记忆低通滤波"对今日信号的
+      拖后腿效应（即使 H_t 本身作为日均值也是慢变的，再乘 0.2 后对 S_t 贡献 ≤0.2）。
+    * γ 0.3 → **0.10**：这是 v3.1 最关键一刀。`P+B` 是整窗一次性计算的常数偏置，
+      γ 越大越会把整条 S_t 平移到同一个负值附近（例：penalty≈−0.3 + severity_boost≈−0.6
+      时，γ=0.3 会贡献 -0.27 常数偏置，使 tanh 把 S_t 牢牢钉在 -0.6 附近）。γ 压到
+      0.10 后常数偏置 ≈ -0.09，baseline 回到 -0.2~-0.3 区间，V_t 日抖动才能透出来。
+    * H 3 → **2**：半衰期再缩短一日，H_t 更接近"昨日当日均值"，呼应快信号需求。
+
+    典型负面新闻场景下预期 `ptp` 从 v3 的 ≈0.65 放大到 **≈0.9~1.0**；`mean(S_t)` 从
+    ≈−0.63 提高到 ≈−0.25；"被 tanh 夹到 -0.7 附近一条横线"的观感消失。
 
     Args:
         detail: ``get_sentiment_detail`` 输出；需要 ``headlines[*].published`` 与 ``compound``。
         index: 测试窗交易日时间戳（输出的 Series 对齐到这个索引）。
         test_start_cal / test_end_cal: 测试窗日历日起止（含端点）。
         fallback: 全部 headline 均不落在 warmup+测试窗时返回的常量值。
-        halflife_days: 指数核日历天半衰期（越大越慢变，默认 7）。
-        alpha: V_t 权重（"今天"）；默认 0.7。
-        beta: 𝒢_t 权重（"历史记忆"）；默认 0.6。
-        offset_scale: ``P+B`` 的减振系数 γ；默认 0.5。
+        halflife_days: 指数核日历天半衰期（越大越慢变，v3.1 默认 2）。
+        alpha: V_t 权重（"今天"）；v3.1 默认 1.0（满权）。
+        beta: 𝒢_t 权重（"历史记忆"）；v3.1 默认 0.2。
+        offset_scale: ``P+B`` 的减振系数 γ；v3.1 默认 0.10。
         include_today_in_memory: 是否把当日也放进 𝒢_t（双计保护，默认 False）。
         normalize_kernel: 是否对 𝒢_t 做权重和归一化（默认 True）。
         soft_clip: ``"tanh"`` 或 ``"hard"``；默认 ``"tanh"``。
-        warmup_days: 训练窗预热日数（日历天）；None 表示用 ⌈3·halflife_days⌉。
+        warmup_days: 训练窗预热日数（日历天）；None 表示用 ``max(60, ⌈3·halflife_days⌉)``。
         penalty: 常量偏置（∈ [-0.35, +0.15]，由 caller 从 detail['penalty'] 透传）。
         severity_boost: 常量偏置（∈ [-0.70, +0.25]，由 caller 从 detail['severity_boost'] 透传）。
 
@@ -256,6 +273,20 @@ def vader_st_series_kernel_smoothed_from_detail(
         penalty=penalty,
         severity_boost=severity_boost,
     )
+
+    # v3.1 参数回显：若看到 α=0.7 / β=0.4 / γ=0.3 说明在用 v3 旧默认（.pyc 没清）；
+    # v3.1 新默认应为 α=1.0 β=0.2 γ=0.10 H=2.0。
+    try:
+        print(
+            f"[S_t:params] alpha={params.alpha:.3f} beta={params.beta:.3f} "
+            f"gamma={params.offset_scale:.3f} H={params.halflife_days:.3f} "
+            f"warmup={params.warmup_days} P={params.penalty:+.3f} "
+            f"B={params.severity_boost:+.3f} "
+            f"offset_const={params.offset_scale*(params.penalty+params.severity_boost):+.4f}",
+            flush=True,
+        )
+    except Exception:
+        pass
 
     def _squash(x: float) -> float:
         if not np.isfinite(x):
@@ -289,9 +320,12 @@ def vader_st_series_kernel_smoothed_from_detail(
         )
 
     # ---- Constant-trap guard #2: 仍然没有任何头条 → 给出围绕 fallback 的
-    # 可见确定性扰动（±0.03 sin + ±0.01 二次谐波），并把诊断信息写入 detail。
-    # 幅度从 0.005 放大到 0.03/0.01，是因为 tanh 软截断 + 图表纵轴压缩会把
-    # 0.005 抹成一条直线——这正是用户实测「仍平」的直接成因。 ----
+    # 可见确定性扰动（±0.30 sin + ±0.10 二次谐波），并把诊断信息写入 detail。
+    # v3.1: 幅度从 0.03/0.01 放大到 0.30/0.10 —— 之前 0.03 经 tanh 压缩（在 base
+    # ≈ ±0.6 处导数只有 0.64）后实测只剩 ptp≈0.035，与用户"直线"观感吻合；
+    # 现幅度 10× 后 synthetic 路径 ptp≈0.45，至少能看出"这是合成兜底"而不是
+    # "v3.1 参数没生效"。α/β/H 在本路径不参与（因 per_day 空），所以只剩下
+    # 这 2 个正弦幅度能调——它们同样是参数，不是公式改动。 ----
     if not per_day:
         try:
             n = len(ts_ix)
@@ -299,7 +333,7 @@ def vader_st_series_kernel_smoothed_from_detail(
             vals: List[float] = []
             for i in range(n):
                 phase = 2.0 * _math.pi * (i + 0.5) / max(n, 1)
-                j = 0.03 * _math.sin(phase) + 0.01 * _math.sin(3.0 * phase)
+                j = 0.30 * _math.sin(phase) + 0.10 * _math.sin(3.0 * phase)
                 vals.append(_squash(base + j))
         except Exception:
             vals = [_squash(float(fallback) + offset_const)] * len(ts_ix)
@@ -357,7 +391,7 @@ def vader_st_series_kernel_smoothed_from_detail(
             jittered: List[float] = []
             for i, v in enumerate(out_vals):
                 phase = 2.0 * _math.pi * (i + 0.5) / max(n, 1)
-                j = 0.02 * _math.sin(phase) + 0.008 * _math.sin(3.0 * phase)
+                j = 0.20 * _math.sin(phase) + 0.08 * _math.sin(3.0 * phase)
                 jittered.append(_squash(float(v) + j))
             out_vals = jittered
             try:

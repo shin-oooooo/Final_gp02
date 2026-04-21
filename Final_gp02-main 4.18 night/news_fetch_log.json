@@ -1,30 +1,32 @@
 {
-  "updated_at": "2026-04-21T12:19:26",
+  "updated_at": "2026-04-21T19:47:44",
   "output_path": "C:\\Users\\zaoji\\Desktop\\Final_gp02-main111\\Final_gp02-main 4.18 night\\news_fetch_log.json",
   "premerge_output_path": "C:\\Users\\zaoji\\Desktop\\Final_gp02-main111\\Final_gp02-main 4.18 night\\news_fetch_log_premerge.json",
   "max_items_requested": 120,
-  "merged_total": 36,
+  "merged_total": 31,
   "by_source": {
-    "crawl4ai": 36
+    "crawl4ai": 31
   },
   "counts_by_published_day_merged": {
     "2026-03-17": 3,
-    "2026-03-18": 3,
-    "2026-03-19": 4,
-    "2026-03-20": 3,
-    "2026-03-21": 3,
+    "2026-03-18": 2,
+    "2026-03-19": 2,
+    "2026-03-20": 2,
+    "2026-03-21": 2,
     "2026-03-22": 2,
     "2026-03-23": 2,
     "2026-03-24": 2,
     "2026-03-25": 2,
-    "2026-03-26": 4,
+    "2026-03-26": 2,
     "2026-03-27": 2,
     "2026-03-28": 2,
     "2026-03-29": 2,
-    "2026-03-30": 2
+    "2026-03-30": 2,
+    "2026-03-31": 1,
+    "2026-04-01": 1
   },
   "pool_sizes": {
-    "crawl4ai_merged": 36,
+    "crawl4ai_merged": 31,
     "akshare_cn": 0,
     "akshare_en": 0,
     "geo_rss": 0,
@@ -36,10 +38,10 @@
     "effective_test_span_days": 36,
     "news_gap_days": 1.0,
     "recommended_test_end": "2026-04-21",
-    "crawl4ai_n": 36,
-    "rss_dated_entries": 36,
+    "crawl4ai_n": 31,
+    "rss_dated_entries": 31,
     "dropped_undated_count": 0,
-    "raw_headline_candidates": 90,
+    "raw_headline_candidates": 31,
     "akshare_enabled": true,
     "akshare_en_enabled": true,
     "akshare_cn_enabled": false,
@@ -64,7 +66,7 @@
     "newapi_meta": {
       "enabled": true,
       "n": 0,
-      "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests.",
+      "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))",
       "provider": "newapi",
       "base_url": "https://newsapi.org",
       "q": "(Missile OR blockade OR ceasefire OR sanctions OR crude oil OR Hormuz OR Iran oil OR embargo OR oil supply OR strait) OR (Taiwan OR TSMC OR semiconductor OR export control OR chip ban OR ASML OR China chip OR lithography OR foundry) OR (Middle East OR oil shock OR energy crisis OR geopolitical risk OR war OR missile OR naval OR sanctions)",
@@ -76,43 +78,43 @@
       "per_day_errors": [
         {
           "day": "2026-04-02",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-04",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-07",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-09",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-10",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-11",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-12",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-16",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-17",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         },
         {
           "day": "2026-04-21",
-          "error": "You have made too many requests recently. Developer accounts are limited to 100 requests over a 24 hour period (50 requests available every 12 hours). Please upgrade to a paid plan if you need more requests."
+          "error": "request failed: ConnectionError(ProtocolError('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None)))"
         }
       ],
       "articles_raw": 0,
@@ -156,77 +158,52 @@
   },
   "headlines": [
     {
-      "text": "Asia markets mixed as hopes for Iran peace talks offset Trump threat of escalation",
+      "text": "As of November 1st, 2021 Yahoo’s suite of services will no longer be accessible from mainland China. Yahoo products and services remain unaffected in all other global locations. We thank you for your support and readership.",
       "published": "2026-03-17",
       "source": "crawl4ai"
     },
     {
-      "text": "Crude Oil 88.59 Arrow Down 1.14%",
+      "text": "Japan scraps ban on lethal weapons exports in major shift of pacifist policy",
       "published": "2026-03-17",
       "source": "crawl4ai"
     },
     {
-      "text": "Markets resilient despite uncertainty as fundamentals hold: Barclays",
+      "text": "Treasury yields are little changed as markets await Iran peace talks and Warsh hearing",
       "published": "2026-03-17",
       "source": "crawl4ai"
     },
     {
-      "text": "CNBC Daily Open: Ternus turns the page at Apple",
+      "text": "European stocks end near flat as UK GDP jumps and Iran peace talks remain in focus",
       "published": "2026-03-18",
       "source": "crawl4ai"
     },
     {
-      "text": "Gold 4,813.40 Arrow Down 0.32%",
+      "text": "South Korea's Kospi hits record high amid mixed Asia markets as hopes linger for Mideast peace",
       "published": "2026-03-18",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Jim Cramer gives four reasons why the market keeps shrugging off the Iran war",
-      "published": "2026-03-18",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Euro 1.18 Arrow Down 0.12%",
-      "published": "2026-03-19",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Grad Students Face Costly Private Loans After Federal Cuts",
-      "published": "2026-03-19",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Indian bank earnings: ICICI a top pick, mid-tier banks are vulnerable",
-      "published": "2026-03-19",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Kevin Warsh will ‘err on the side of lowering rates earlier,’ says Allianz’ Mohamed El-Erian",
-      "published": "2026-03-19",
       "source": "crawl4ai"
     },
     {
       "text": "European stocks end lower as luxury slump weighs on sentiment",
+      "published": "2026-03-19",
+      "source": "crawl4ai"
+    },
+    {
+      "text": "Jim Cramer gives four reasons why the market keeps shrugging off the Iran war",
+      "published": "2026-03-19",
+      "source": "crawl4ai"
+    },
+    {
+      "text": "From panic to pricing in: Are markets past 'peak fear and sell-off' despite oil price surge?",
       "published": "2026-03-20",
       "source": "crawl4ai"
     },
     {
-      "text": "From panic to pricing in: Are markets past ‘peak fear and sell-off’ despite oil price surge?",
+      "text": "This cybersecurity stock has room to run following Claude Mythos Preview's release, KeyBanc says",
       "published": "2026-03-20",
       "source": "crawl4ai"
     },
     {
-      "text": "Pound/Dollar 1.35 Arrow Down 0.14%",
-      "published": "2026-03-20",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "European markets close higher as traders hope peace talks can resume",
-      "published": "2026-03-21",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Markets Wrap Global Stock Rally Resumes, Oil Dips on Iran Talks",
+      "text": "Apple goes for the 'continuity candidate.' What the CEO change means for investors",
       "published": "2026-03-21",
       "source": "crawl4ai"
     },
@@ -236,23 +213,28 @@
       "source": "crawl4ai"
     },
     {
-      "text": "Apple goes for the ‘continuity candidate’ to replace Cook. What the CEO change means for investors",
-      "published": "2026-03-22",
-      "source": "crawl4ai"
-    },
-    {
       "text": "Investors are questioning gold’s role in portfolios, says Morgan Stanley — but another metal is set to outperform",
       "published": "2026-03-22",
       "source": "crawl4ai"
     },
     {
-      "text": "Dollar dependence adds pressure on the Gulf & its oil trade: Expert",
+      "text": "Tuesday's big stock stories: What’s likely to move the market in the next trading session",
+      "published": "2026-03-22",
+      "source": "crawl4ai"
+    },
+    {
+      "text": "Iran war, oil surge — How to navigate the volatility at PRO Live",
       "published": "2026-03-23",
       "source": "crawl4ai"
     },
     {
-      "text": "Tuesday’s big stock stories: What’s likely to move the market in the next trading session",
+      "text": "Stay in equities, up cash holdings with the Chinese yuan: Strategist",
       "published": "2026-03-23",
+      "source": "crawl4ai"
+    },
+    {
+      "text": "Dollar dependence adds pressure on the Gulf & its oil trade: Expert",
+      "published": "2026-03-24",
       "source": "crawl4ai"
     },
     {
@@ -261,27 +243,17 @@
       "source": "crawl4ai"
     },
     {
-      "text": "‘Resumption of hostilities’: Seized ship, vessel attacks push U.S.-Iran ceasefire toward brink",
-      "published": "2026-03-24",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Apple taps John Ternus as CEO to replace Tim Cook, who will become chairman",
+      "text": "Stocks making the biggest moves after hours: Amazon, Apple, Steel Dynamics and more",
       "published": "2026-03-25",
       "source": "crawl4ai"
     },
     {
-      "text": "Iran war, oil surge — How to navigate the volatility at PRO Live",
+      "text": "Stocks making the biggest moves premarket: Amazon, Apple, GE Aerospace, UnitedHealth & more",
       "published": "2026-03-25",
       "source": "crawl4ai"
     },
     {
-      "text": "AI Threatens ‘Jobs With Dignity,’ Says Nobel-Winning Economist Simon Johnson warns the technology could erode middle-class jobs and widen inequality, unless policymakers start tackling the issue now.",
-      "published": "2026-03-26",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Cash has diversified portfolios better than bonds, says Morningstar",
+      "text": "Stocks making big moves midday: Stanley Black & Decker, American Airlines, Dow",
       "published": "2026-03-26",
       "source": "crawl4ai"
     },
@@ -291,27 +263,22 @@
       "source": "crawl4ai"
     },
     {
-      "text": "The Big Take Electric Bills Stoke Voter Fury Ahead of Midterms Voters across the US are angry about rising energy costs, making the price of electricity an unusual force in high-stakes midterm elections for the first time ever.",
-      "published": "2026-03-26",
-      "source": "crawl4ai"
-    },
-    {
-      "text": "Stocks making the biggest moves after hours: Amazon, Apple, Steel Dynamics and more",
+      "text": "Stock futures climb on strong earnings, end of U.S.-Iran ceasefire looms",
       "published": "2026-03-27",
       "source": "crawl4ai"
     },
     {
-      "text": "Tim Cook reactions: Sam Altman, Palmer Luckey react to Apple CEO move",
+      "text": "Stocks making the biggest moves premarket: American Airlines, Marvell & more",
       "published": "2026-03-27",
       "source": "crawl4ai"
     },
     {
-      "text": "Nvidia supplier Victory Giant sees shares soar 60% in Hong Kong debut",
+      "text": "European stocks higher as U.S.-Iran ceasefire deadline looms",
       "published": "2026-03-28",
       "source": "crawl4ai"
     },
     {
-      "text": "Stocks making big moves midday: Stanley Black & Decker, American Airlines, Dow",
+      "text": "Stocks making big moves midday: Royal Caribbean, Exxon, Critical Metals, Netflix",
       "published": "2026-03-28",
       "source": "crawl4ai"
     },
@@ -321,7 +288,7 @@
       "source": "crawl4ai"
     },
     {
-      "text": "Stocks making the biggest moves premarket: American Airlines, Marvell & more",
+      "text": "Sell in May? Don't get taken in by seasonal trading patterns",
       "published": "2026-03-29",
       "source": "crawl4ai"
     },
@@ -331,17 +298,27 @@
       "source": "crawl4ai"
     },
     {
-      "text": "Stocks making big moves midday: Royal Caribbean, Exxon, Critical Metals, Netflix",
+      "text": "Recent chaos shows investors are better off avoiding market timing",
       "published": "2026-03-30",
+      "source": "crawl4ai"
+    },
+    {
+      "text": "Global stocks have recouped Iran war losses to hit fresh records — but the shadow of Mideast conflict still looms",
+      "published": "2026-03-31",
+      "source": "crawl4ai"
+    },
+    {
+      "text": "CNBC Daily Open: Tim Cook finds the new Apple of his eye",
+      "published": "2026-04-01",
       "source": "crawl4ai"
     }
   ],
   "vader_score": {
-    "score": -0.6916,
+    "score": -0.49239999999999995,
     "vader_avg": 0.0,
-    "penalty": -0.26,
-    "severity_boost": -0.432,
-    "neg_hits": 7,
+    "penalty": -0.18,
+    "severity_boost": -0.312,
+    "neg_hits": 5,
     "pos_hits": 1
   },
   "vader_headlines": [],

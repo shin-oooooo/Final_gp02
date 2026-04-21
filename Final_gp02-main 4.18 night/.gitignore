@@ -1,49 +1,12 @@
-# ── Kronos：仅跟踪默认推理所需（kronos-small + tokenizer-base），其余用 download_kronos_weights 或 Hub ──
-kronos_weights/*
-!kronos_weights/kronos-small/
-!kronos_weights/kronos-small/**
-!kronos_weights/tokenizer-base/
-!kronos_weights/tokenizer-base/**
+# ── OS / Editor ──
+.DS_Store
+Thumbs.db
+desktop.ini
+__MACOSX/
+.vscode/
+.idea/
 
-# 权重目录内 HuggingFace 下载缓存不上传
-kronos_weights/**/.cache/
-
-bin/kronos_weights/
-
-# 其他目录的模型大文件（勿误提交）
-*.safetensors
-!kronos_weights/kronos-small/model.safetensors
-!kronos_weights/tokenizer-base/model.safetensors
-
-*.bin
-*.pt
-*.pth
-*.ckpt
-*.onnx
-
-# HuggingFace 本地缓存
-.cache/
-**/.cache/
-
-# ── 数据目录（运行时生成 / 下载）──
-kronos_data/
-data.json
-sentiment_st.csv
-read.txt
-Improv_for_P0123.md
-
-# 本地探测 / 一次性导出（勿提交）
-conversation-this-thread.diff
-news_window_*.json
-news_window_*.txt
-news_report_*.txt
-sentiment_headlines_dump.json
-sentiment_st_meta.json
-sentiment_*_probe.txt
-meta.json
-*Guidelines*.docx
-
-# ── Python 缓存 ──
+# ── Python caches ──
 __pycache__/
 *.py[cod]
 *.pyo
@@ -52,34 +15,25 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# ── 构建 / 分发 ──
-build/
-dist/
-*.egg-info/
-*.egg
-MANIFEST
-
-# ── 虚拟环境 ──
+# ── Virtualenvs ──
 .venv/
 venv/
 env/
 .conda/
 
-# ── 编辑器 / OS ──
-.vscode/
-.idea/
-*.DS_Store
-Thumbs.db
-desktop.ini
-
-# ── 日志与临时文件 ──
+# ── Logs / runtime ──
 *.log
-bin/debug-*.log
+*.tmp
 tmp/
 temp/
-*.tmp
 
-# ── 敏感配置 ──
+# ── Local feedback / scratch ──
+_feedback_*.txt
+_feedback_*.json
+_naming_audit.txt
+_fb_py/
+
+# ── Secrets ──
 .env
 .env.*
 !.env.example
@@ -87,9 +41,8 @@ temp/
 
 # ── Jupyter ──
 .ipynb_checkpoints/
-*.ipynb
 
-# ── 测试覆盖率 ──
+# ── Coverage ──
 .coverage
 htmlcov/
 coverage.xml

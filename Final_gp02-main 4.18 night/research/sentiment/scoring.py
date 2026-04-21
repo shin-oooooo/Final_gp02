@@ -216,14 +216,21 @@ def _get_sentiment_detail_impl(
     }
     try:
         from research.news_fetch_log import write_news_fetch_log
+        from research.sentiment.sources_cache import cache_mode_should_skip_writeback
 
-        write_news_fetch_log(
-            items,
-            fetch_meta,
-            max_items=max_headlines,
-            pool_sizes=pool_sizes,
-            sentiment_detail=result,
-        )
+        if cache_mode_should_skip_writeback():
+            logger.info(
+                "[sentiment] cache replay active — skipping news_fetch_log writeback "
+                "to preserve the committed seed (HF / LREPORT_NEWS_USE_CACHE=1)."
+            )
+        else:
+            write_news_fetch_log(
+                items,
+                fetch_meta,
+                max_items=max_headlines,
+                pool_sizes=pool_sizes,
+                sentiment_detail=result,
+            )
     except Exception as exc:
         logger.warning("news_fetch_log write failed: %s", exc, exc_info=True)
     return result

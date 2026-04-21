@@ -1,18 +1,19 @@
 """Research-panel callbacks."""
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
-import dash_bootstrap_components as dbc
-from dash import ALL, MATCH, Input, Output, State, dcc, html
-from dash.exceptions import PreventUpdate
+import dash
+from dash import MATCH, Input, Output, State, dcc, html
 
+from dash_app.services.copy import get_md_text
 from dash_app.ui.layout import (
     _analysis_card,
     _default_data_json_path,
-    _fig_explain_title,
     _p0_resolved_window_strings,
     _templates,
+    explain_title_from_figures as _explain_title,
 )
 from dash_app.render.explain import (
+    build_fig42_body,
     build_figx1_explain_body,
     build_figx2_explain_body,
     build_figx3_explain_body,
@@ -27,27 +28,12 @@ from dash_app.render.explain import (
     p3_section_31_adaptive,
     p3_section_32_dual_mc,
 )
-from dash_app.services.copy import get_figure_title
+from dash_app.render.explain._loaders import load_fig4_template
 from research.schemas import DefensePolicyConfig
 
 import os
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def _explain_title(base_key: str, mode: Optional[str], default_inv: str) -> str:
-    """Pick the explain-card title honoring invest/research mode.
-
-    研究模式优先读 ``{base_key}_res``（「数据、参数与方法论详情」），缺失时回退到
-    ``{base_key}``（「图表与方法简介」）；投资模式仅读 ``{base_key}``。兜底字符串
-    仅在 md/json 双缺失时使用。
-    """
-    m = (mode or "invest").strip().lower()
-    if m == "research":
-        res_title = get_figure_title(f"{base_key}_res", "")
-        if res_title:
-            return res_title
-    return get_figure_title(base_key, default_inv)
 
 
 def register_research_panels_callbacks(app):
@@ -75,50 +61,99 @@ def register_research_panels_callbacks(app):
         Output("figure-caption-bundle", "data", allow_duplicate=True),
         Output("sb2-explain-slot-01", "children", allow_duplicate=True),  # FigX.1
         Output("sb2-explain-slot-02", "children", allow_duplicate=True),  # FigX.2
-        Output("sb2-explain-slot-03", "children", allow_duplicate=True),  # FigX.3（补漏）
+        Output("sb2-explain-slot-03", "children", allow_duplicate=True),  # FigX.3
         Output("sb2-explain-slot-04", "children", allow_duplicate=True),  # FigX.4
         Output("sb2-explain-slot-05", "children", allow_duplicate=True),  # FigX.5
         Output("sb2-explain-slot-06", "children", allow_duplicate=True),  # FigX.6
-        # --- 主栏 P4 讲解（补漏）---
+        # --- 主栏 P4 动态内容（需快照）---
         Output("p4-fig41-analysis-md", "children", allow_duplicate=True),
         Output("p4-experiments-stack", "children", allow_duplicate=True),
-        # --- 主栏 P0 四张动态文本卡（新增 Inv/Res 切换）---
+        # --- 主栏 P0 四张动态文本卡（需快照）---
         Output("p0-heatmap-text", "children", allow_duplicate=True),
         Output("p0-beta-text-stack", "children", allow_duplicate=True),
         Output("p0-asset-class-analysis", "children", allow_duplicate=True),
         Output("about-phase0-logic", "children", allow_duplicate=True),
-        # --- 主栏 P1/P2/P3 静态讲解卡（新增 Inv/Res 切换）---
-        Output("p1-stat-method-card", "children", allow_duplicate=True),
-        Output("p2-fig21-explain-card", "children", allow_duplicate=True),
-        Output("p2-fig22-explain-card", "children", allow_duplicate=True),
-        Output("p3-adaptive-intro-card", "children", allow_duplicate=True),
-        Output("p3-fig33-explain-card", "children", allow_duplicate=True),
+        # --- 主栏 P1/P2/P3 + P4 静态讲解卡的内层 md slot（只更新文字，不重建整张卡）---
+        # 不再覆写 *-explain-card 的 children（会导致 analysis-toggle/collapse id 重复，
+        # 使 _toggle_analysis MATCH 回调失效），只更新卡内的 *-explain-md Div。
+        Output("p1-stat-method-md", "children", allow_duplicate=True),
+        Output("p2-fig21-explain-md", "children", allow_duplicate=True),
+        Output("p2-fig22-explain-md", "children", allow_duplicate=True),
+        Output("p3-fig31-explain-md", "children", allow_duplicate=True),
+        Output("p3-fig33-explain-md", "children", allow_duplicate=True),
+        Output("p3-fig33-explain-md-2", "children", allow_duplicate=True),
+        Output("p4-fig41-explain-md", "children", allow_duplicate=True),
+        Output("p4-fig42-explain-md", "children", allow_duplicate=True),
         Input("radio-ui-mode", "data"),
+        Input("lang-rebuild-tick", "data"),
+        # last-snap 改为 State：管线完成不再触发本回调，避免每次跑批都覆写讲解卡
+        # （从而也避免 analysis-toggle/collapse id 重复导致折叠失效）。
         State("last-snap", "data"),
         State("defense-policy-config", "data"),
         State("theme-store", "data"),
         prevent_initial_call=True,
     )
     def _caption_refresh_on_mode(
-        mode: Optional[str], snap: Any, pol_j: Any, theme: Optional[str]
+        mode: Optional[str],
+        _lang_tick: Any,
+        snap: Any,
+        pol_j: Any,
+        theme: Optional[str],
     ):
-        """模式切换时**只刷新讲解类内容**，不重跑管线。
+        """模式 / 语言切换时**只刷新讲解类内容**，不重跑管线。
 
         覆盖范围：
-        * 侧栏 FigX.1–6 讲解卡 + caption bundle（7 槽）
-        * 主栏 P4：Fig4.1 analysis md + Fig4.2 实验栈（2 槽）
-        * 主栏 P0：4 张动态文本卡（3 body + 1 about）（4 槽）
-        * 主栏 P1/P2/P3：5 张静态讲解卡容器（5 槽）
-        合计 18 槽，全部无感切换 Inv/Res 版本 MD。
-        """
-        if not isinstance(snap, dict) or not snap.get("phase2"):
-            raise PreventUpdate
+        * 侧栏 FigX.1–6 讲解卡 + caption bundle（7 槽，需快照）
+        * 主栏 P4：Fig4.1 analysis 主面板 + Fig4.2 实验栈（2 槽，需快照）
+        * 主栏 P0：4 张动态文本卡（3 body + 1 about，共 4 槽，需快照）
+        * 主栏 P1/P2/P3 + P4 的 7 张**静态讲解卡**：p1-stat-method、p2-fig21、p2-fig22、
+          p3-fig31、p3-fig33、p4-fig41、p4-fig42（全部无快照也可切；有快照时
+          p4-fig42 的占位符会被 ``build_fig42_body`` 替换为实际数值）。
 
+        触发源：
+        * ``radio-ui-mode``：Invest / Research 切换（不需要等管线跑完）。
+        * ``lang-rebuild-tick``：语言按钮切换后由 ``app_shell`` 中的语言重建回调原子写入；
+          监听 tick 而不是 ``lang-store`` 本身，可以**确保**讲解内容在 layout
+          children 重建完成之后才覆盖到新挂载的组件上，避免竞争。
+        """
         # 惰性 import 以避免启动时循环依赖
         from dash_app.dash_ui_helpers import _p4_experiments_stack_block
         from dash_app.fig41 import Fig41Context, build_fig41, extract_fig41_bundle
         from dash_app.render import build_main_p0, extract_dashboard_state
-        from dash_app.ui.main_p3 import build_p3_adaptive_intro_column
+
+        NU = dash.no_update
+        mode_eff = mode or "invest"
+
+        # ── 静态讲解卡 md slot：只更新内层文字，不重建整张卡 ──
+        # 各 Output 对应的是 ``*-explain-md`` Div 的 children（即 dcc.Markdown.children 字符串），
+        # 而非整张 _analysis_card。这样 analysis-toggle / analysis-collapse 的 id
+        # 从不被覆写，_toggle_analysis MATCH 回调始终有效。
+        p1_md   = dcc.Markdown(p1_stat_method(mode_eff),           mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+        p2_21_md = dcc.Markdown(p2_pixel_shadow_intro(mode_eff),   mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+        p2_22_md = dcc.Markdown(p2_fig21_intro(mode_eff),          mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+        p3_31_md = dcc.Markdown(p3_section_31_adaptive(mode_eff),  mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+        p3_33_md = dcc.Markdown(p3_section_32_dual_mc(mode_eff),   mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+        # Fig3.3 第二张「双轨蒙特卡洛模拟」只在投资模式出现；研究模式返回空字符串。
+        p3_33_md2 = dcc.Markdown(
+            "" if mode_eff == "research" else get_md_text("Inv/Fig3.3-Inv_2.md", ""),
+            mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"},
+        )
+        p4_41_md = dcc.Markdown(load_fig4_template("1", mode_eff), mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+
+        has_snap = isinstance(snap, dict) and bool(snap.get("phase2"))
+
+        if not has_snap:
+            # 无快照时：p4_fig42 也用原始模板（占位符保持 ``{mc_content}`` 等字面）；
+            # 有快照时下方会再用 ``build_fig42_body`` 覆盖。
+            p4_42_md = dcc.Markdown(load_fig4_template("2", mode_eff), mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"})
+            return (
+                NU,                          # caption bundle
+                NU, NU, NU, NU, NU, NU,      # FigX.1-6
+                NU, NU,                      # P4 fig41-analysis-md + experiments-stack
+                NU, NU, NU, NU,              # P0 four
+                p1_md, p2_21_md, p2_22_md, p3_31_md, p3_33_md, p3_33_md2,
+                p4_41_md, p4_42_md,
+            )
 
         try:
             pol = DefensePolicyConfig.model_validate(pol_j or {})
@@ -134,30 +169,28 @@ def register_research_panels_callbacks(app):
         tpl = _templates(theme or "dark")
 
         # ── 侧栏 FigX.1-6 讲解（标题由 figures_titles.md 控制）──
-        # 研究模式读 `fig_x_N_explain_res`（「数据、参数与方法论详情」），投资模式读
-        # `fig_x_N_explain`（「图表与方法简介」）。
         figx1 = _analysis_card(
-            _explain_title("fig_x_1_explain", mode, "FigX.1 讲解：测试窗 S_t（VADER 分段累积）"),
+            _explain_title("fig_x_1_explain", mode, "FigX.1 讲解"),
             build_figx1_explain_body(mode, snap, pol, p2, meta, syms, jp),
         )
         figx2 = _analysis_card(
-            _explain_title("fig_x_2_explain", mode, "FigX.2 讲解：结构熵与 Level 判定"),
+            _explain_title("fig_x_2_explain", mode, "FigX.2 讲解"),
             build_figx2_explain_body(mode, snap, pol, p2, meta, syms, jp),
         )
         figx3 = _analysis_card(
-            _explain_title("fig_x_3_explain", mode, "FigX.3 讲解：高波动与低自相关资产"),
+            _explain_title("fig_x_3_explain", mode, "FigX.3 讲解"),
             build_figx3_explain_body(mode, snap, pol, p2, meta, syms, jp),
         )
         figx4 = _analysis_card(
-            _explain_title("fig_x_4_explain", mode, "FigX.4 讲解：可信度评分与三态灯"),
+            _explain_title("fig_x_4_explain", mode, "FigX.4 讲解"),
             build_figx4_explain_body(mode, snap, pol, p2, meta, syms, jp),
         )
         figx5 = _analysis_card(
-            _explain_title("fig_x_5_explain", mode, "FigX.5 讲解：模型—模型应力检验"),
+            _explain_title("fig_x_5_explain", mode, "FigX.5 讲解"),
             build_figx5_explain_body(mode, snap, pol, p2, meta, syms, jp),
         )
         figx6 = _analysis_card(
-            _explain_title("fig_x_6_explain", mode, "FigX.6 讲解：语义–数值滚动余弦"),
+            _explain_title("fig_x_6_explain", mode, "FigX.6 讲解"),
             build_figx6_explain_body(mode, snap, pol, p2, meta, syms, jp),
         )
 
@@ -186,26 +219,15 @@ def register_research_panels_callbacks(app):
         fig41_components = build_fig41(fig41_bundle, fig41_ctx)
         p4_fig41_panel = fig41_components.panel
 
-        # ── P4：Fig4.2 实验栈（包含三权重对比 + 讲解长文）──
+        # ── P4：Fig4.2 实验栈（只剩三权重对比图）──
         p4_experiments = _p4_experiments_stack_block(snap, tpl, mode)
 
-        # ── P1/P2/P3 静态讲解卡（只换 MD 正文，标题不变）──
-        p1_card = _analysis_card(
-            _fig_explain_title(1, 1, "统计方法说明（ADF / Ljung-Box / P 值含义）"),
-            p1_stat_method(mode or "invest"),
-        )
-        p2_fig21 = _analysis_card(
-            _fig_explain_title(2, 1, "影子择模与像素矩阵（MSE / 影子验证 / 综合分）"),
-            p2_pixel_shadow_intro(mode or "invest"),
-        )
-        p2_fig22 = _analysis_card(
-            _fig_explain_title(2, 2, "时间×收益密度（纵轴 · μ 脊线 · 着色）"),
-            p2_fig21_intro(mode or "invest"),
-        )
-        p3_adaptive = build_p3_adaptive_intro_column(p3_section_31_adaptive(mode or "invest"))
-        p3_fig33 = _analysis_card(
-            _fig_explain_title(3, 3, "双轨蒙特卡洛"),
-            p3_section_32_dual_mc(mode or "invest"),
+        # ── P4：Fig4.2 讲解 md slot（有快照 → 占位符替换）──
+        p3 = snap.get("phase3") or {}
+        dv = p3.get("defense_validation") if isinstance(p3.get("defense_validation"), dict) else {}
+        p4_42_md = dcc.Markdown(
+            build_fig42_body(mode, snap, dv),
+            mathjax=True, className="mb-0 phase-doc-body", style={"lineHeight": "1.8"},
         )
 
         # ── caption bundle ──
@@ -216,5 +238,6 @@ def register_research_panels_callbacks(app):
             figx1, figx2, figx3, figx4, figx5, figx6,
             p4_fig41_panel, p4_experiments,
             p0_heatmap, p0_beta_stack, p0_asset_class, p0_about,
-            p1_card, p2_fig21, p2_fig22, p3_adaptive, p3_fig33,
+            p1_md, p2_21_md, p2_22_md, p3_31_md, p3_33_md, p3_33_md2,
+            p4_41_md, p4_42_md,
         )

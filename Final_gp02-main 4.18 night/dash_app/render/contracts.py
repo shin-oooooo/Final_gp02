@@ -10,8 +10,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # --------------------------------------------------------------------------- #
@@ -40,6 +40,13 @@ class DashboardState:
     ui_mode: Optional[str]
     tpl: str
     p2_sym_state: Optional[str]
+    # Fig 4.1a (mm) / Fig 4.1b (mv) 的独立标的搜索值（可选）；由
+    # ``dashboard_pipeline._render_dashboard_face`` 从两个独立的 dropdown
+    # ``p4-verify-search`` / ``p4-verify-search-b`` 透传。``render/main_p4``
+    # 用 ``p4_focus_a`` 做 4.1a 的 ``focus_override``，``p4_focus_b`` 做 4.1b 的。
+    # 两者缺省时回退到 ``p2_sym_state`` 以兼容旧行为。
+    p4_focus_a: Optional[str]
+    p4_focus_b: Optional[str]
     json_path: str
     objective_name: str
 
@@ -79,20 +86,19 @@ class DashboardState:
 
 
 # --------------------------------------------------------------------------- #
-# 主栏 P0（9 槽）                                                              #
+# 主栏 P0（7 槽；历史上的 diagnostic-summary 与 p0-noise-level 已剔除，         #
+# 同等信息保留在顶栏 defense-tag + 侧栏 FigX 中）                              #
 # --------------------------------------------------------------------------- #
 
 
 @dataclass(frozen=True)
 class MainP0Components:
-    diag_alert: Any                           # diagnostic-summary
     header: Any                               # header-status
     fig_corr: Any                             # fig-p0-corr
     fig_beta: Any                             # fig-p0-beta
     p0_heatmap_text: Any                      # p0-heatmap-text
     p0_beta_text_stack: Any                   # p0-beta-text-stack
     p0_asset_class_analysis: Any              # p0-asset-class-analysis
-    noise_level_card: Any                     # p0-noise-level
     about_p0: Any                             # about-phase0-logic
 
 
@@ -137,7 +143,13 @@ class MainP3Components:
 
 
 # --------------------------------------------------------------------------- #
-# 主栏 P4（8 槽 — Fig 4.1a（mm）3 槽 + Fig 4.1b（mv）3 槽 + 独立结论 1 槽 + 实验栈 1）
+# 主栏 P4（11 槽 — Fig 4.1a（mm）4 槽 + Fig 4.1b（mv）4 槽 + Fig 4.1 结论 1 +
+#                     实验栈 1 + Fig 4.2 结论 1）
+#                                                                              #
+# R2 起预警日 ``alarm_banner`` 与 ``analysis_md`` 拆成独立槽位，便于 UI 布局把
+# *预警日 banner* 放到 *标的搜索栏* 上方；``analysis_md`` 只承载 Part 2-5 / fallback。
+# R3 新增 ``p4_fig42_conclusion``：与 Fig 4.1 结论对称的独立 Card，位于 Fig 4.2
+# experiments-stack 下方、讲解卡之上；文案来自 ``content-{LANG}/Res/Fig4.2-Res.md`` §9.1。
 # --------------------------------------------------------------------------- #
 
 
@@ -145,15 +157,19 @@ class MainP3Components:
 class MainP4Components:
     p4_experiments: Any                       # p4-experiments-stack
     # Fig 4.1a · 模型—模型应力
+    p4_fig41_alarm_banner: Any                # p4-fig41-alarm-banner  (mm 预警日 banner；idle 态为空 Div)
     p4_fig41_jsd: Any                         # p4-fig41-jsd           (mm daily returns)
-    p4_verify_hero: Any                       # p4-verify-hero         (mm hero)
-    p4_fig41_analysis_md: Any                 # p4-fig41-analysis-md   (mm banner + Part 2-5)
+    p4_verify_hero: Any                       # p4-verify-hero         (mm hero；idle 态为空 Div)
+    p4_fig41_analysis_md: Any                 # p4-fig41-analysis-md   (mm Part 2-5 / fallback)
     # Fig 4.1b · 模型应力—市场载荷方向
+    p4_fig41b_alarm_banner: Any               # p4-fig41b-alarm-banner (mv 预警日 banner)
     p4_fig41b_jsd: Any                        # p4-fig41b-jsd          (mv daily returns)
     p4_fig41b_verify_hero: Any                # p4-fig41b-verify-hero  (mv hero)
-    p4_fig41b_analysis_md: Any                # p4-fig41b-analysis-md  (mv banner + Part 2-5)
-    # 独立结论卡（4.1a / 4.1b 外）
+    p4_fig41b_analysis_md: Any                # p4-fig41b-analysis-md  (mv Part 2-5 / fallback)
+    # Fig 4.1 独立结论卡
     p4_fig41_conclusion: Any                  # p4-fig41-conclusion
+    # Fig 4.2 独立结论卡（experiments-stack 之下、讲解卡之上）
+    p4_fig42_conclusion: Any                  # p4-fig42-conclusion
 
 
 # --------------------------------------------------------------------------- #
@@ -188,6 +204,14 @@ class SidebarRightComponents:
     figx4_explain: Any                        # sb2-explain-slot-04
     figx5_explain: Any                        # sb2-explain-slot-05
     figx6_explain: Any                        # sb2-explain-slot-06
+
+    # 顶栏"当前防御状态"横向展开用的**原始** (body, severity) 6 元组；
+    # key ∈ {"st","h_struct","figx3","consistency","jsd","cos"}。
+    # 侧栏的 sb2_*_reason 已经按 ``_should_show_defense_tag`` 做过宽松过滤
+    # （level 2 展 danger+warn+success），不够严；topbar 需要"只与当前等级严格
+    # 相符"的过滤（L2 只展 danger、L1 只展 warn、L0 只展 success），因此必须
+    # 拿到未过滤的原始 (body, severity) 自行渲染。
+    topbar_reason_raw: Dict[str, Tuple[Any, str]] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #

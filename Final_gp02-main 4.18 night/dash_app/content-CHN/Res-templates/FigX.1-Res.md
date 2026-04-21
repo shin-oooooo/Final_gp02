@@ -55,15 +55,15 @@ S_t = \operatorname{softclip}\Bigl(\alphaV_t + \beta\mathcal{H}_t + \gamma(P+B)\
 $$
 
 - **当日项 V_t**：交易日 t 的日历日若有头条，取该日 VADER `compound` 的稳健聚合（样本 <5 中位数，≥5 取 20% 截尾均值），并 clip 到 [−1,+1]；否则为 0。
-- **归一化历史记忆项**（v2 关键改动）：
+- **归一化历史记忆项**（v2 引入，v3 保留）：
   $$
   \mathcal{H}_t = \frac{\sum_{i\in\mathcal{N}(t),\,i<t_{\mathrm{cal}}} 2^{-(t_{\mathrm{cal}}-i)/H}\cdot M_i}{\sum_{i\in\mathcal{N}(t),\,i<t_{\mathrm{cal}}} 2^{-(t_{\mathrm{cal}}-i)/H}}\;\in[-1,+1]
   $$
   归一后 `H_t` 量纲与 `V_t` 一致，且**不随新闻密度单调累加**——"负面新闻多"只会让 `H_t` 更接近历史日度平均，而不会把 S_t 钉死在 −1。
 - **减振常量偏置 γ(P+B)**：直接取 `sentiment_detail` 中整窗一次性计算的 `penalty`（关键词风险 ∈ [−0.35, +0.15]）与 `severity_boost`（per-ticker 语境修正 ∈ [−0.70, +0.25]），乘以 γ 压缩，避免单独贡献直接把 S_t 推出上下界。
 - **tanh 软截断**：在 ±1 处用 S 形渐近收敛，避免 plateau；`soft_clip="hard"` 退化为旧硬 clip。
-- **训练窗预热**：在 headline 过滤时把下限前推 `warmup_days = ⌈3·H⌉` 个日历日，使测试首日的 `H_t` 已带训练尾段新闻记忆。
-- **默认参数（v2）**：α=0.7、β=0.6、γ=0.5、H=7 日历天；`normalize_kernel=True`、`soft_clip="tanh"`、`include_today_in_memory=False`。在"几乎全负面新闻 + P+B ≈ −0.3"场景下，S_t 稳定在 [−0.9, −0.2] 随新闻密度/极性呈现可见波动，而非堆到 −1。
+- **训练窗预热（v3 关键改动）**：在 headline 过滤时把下限前推 `warmup_days = max(60, 2·n_test_td, ⌈3·H⌉)` 个日历日（由 `research/pipeline.py::_resolve_test_sentiment_path` 计算后显式传入）；把下限从 v2 的 `⌈3·H⌉` 抬到 **至少 60**，使训练尾部新闻提前进入 `H_t` 记忆窗口，消除"测试首日前无新闻 → 前若干交易日 V_t=H_t=0 → S_t 恒常量"的冷启动 prefix。
+- **默认参数（v3.1）**：α=**1.0**、β=**0.2**、γ=**0.10**、H=**2** 日历天；`normalize_kernel=True`、`soft_clip="tanh"`、`include_today_in_memory=False`。v3.1 相较 v3（0.7/0.4/0.3/3）只动四个标量、不改公式：α↑（满权）、β↓（历史低通减半）、γ↓（常数偏置从 -0.27 压到 -0.09）、H↓（记忆窗口更近）。配合 `warmup_days = max(60, 2·n_test_td, ⌈3·H⌉)`，消除冷启动 prefix 后进一步把 `ptp` 从 ≈0.65 推到 ≈0.9~1.0。
 - **双层过滤闸门（v2 新增）**：新闻抓取侧改用通用 **种子词库闸门** `_headline_passes_seed_gate`：
   - 词数 < 4 / 长度 < 16 字符的残片 → 拒绝；
   - 命中 `_HEADLINE_PAGE_NAV_JUNK_RE`（"penny stocks"、"tax brackets"、"budget & performance"、"administrative law judge"、"harmed investors"、NewsAPI 速率超额文本等）→ 拒绝；
@@ -170,7 +170,7 @@ $$
 - **min 聚合过保守**：一次噪声极端值会“永久拉低”该窗的情绪输入；这是为了防守而设计，但会牺牲对“短噪声”的鲁棒性。
 - **标量/序列双口径易被误读**：图上最显眼的是 `st_last`，但状态机用的是 `st_min`；审计必须以 `st_min` 为准。
 - **MVP 指数核的时间分辨局限**：`penalty`、`severity_boost` 仍按整窗一次性计算并以常量形式加到每一天；单一关键词事件在本 MVP 版中不会呈现「脉冲→衰减」形状，只体现为基线偏置。进阶版（后续工作）会对 penalty 同样做指数核平滑。
-- **半衰期 H 是超参**：过短 → 历史记忆权重快速衰减，S_t 接近当日 VADER 的噪声；过长 → 事件影响持续过久，对短噪声同样不鲁棒。默认 H=7 日历天为中性选择；在事件密集/稀疏窗口中可通过 `DefensePolicyConfig.sentiment_halflife_days` 调节。
+- **半衰期 H 是超参**：过短 → 历史记忆权重快速衰减，S_t 接近当日 VADER 的噪声；过长 → 事件影响持续过久，对短噪声同样不鲁棒。v3.1 默认 H=2 日历天（偏短期，突显日间波动）；在事件密集/稀疏窗口中可通过 `DefensePolicyConfig.sentiment_halflife_days` 调节，慢速事件可用 H=7 或 H=14。
 
 ---
 

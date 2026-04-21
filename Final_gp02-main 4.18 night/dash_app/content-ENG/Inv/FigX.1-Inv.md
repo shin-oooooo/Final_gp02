@@ -14,7 +14,7 @@ To mitigate limited headline coverage on some dates, the pipeline:
 
 ## Series S_t
 
-**S_t**: Daily sentiment. Calendar segments by headline dates; each segment’s mean VADER decays exponentially from prior segments so sparse-news days keep directional momentum instead of collapsing to zero or blunt forward-fill.
+**S_t**: Daily sentiment. For each test trading day, the engine takes an exponential-kernel weighted blend of **today's VADER** and **prior-day news memory** (distances in calendar days, default half-life 2 days), adds the keyword penalty and symbol-aware `severity_boost` as a constant offset, and soft-clips the result through **tanh** into [−1, +1]. Sparse-news days preserve directional momentum without collapsing to zero or degenerating into a forward-fill. Three constant-trap guards kick in when the window has no admissible headline at all, keeping S_t visibly varying and stamping a `synthetic_reason` flag into the diagnostic snapshot.
 
 ## Impact on defense
 

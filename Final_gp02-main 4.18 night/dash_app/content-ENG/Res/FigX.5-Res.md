@@ -12,7 +12,7 @@ This document is aligned with the sidebar render template: `dash_app/render/expl
 
 > **Unified window policy**: starting from this revision the rolling window **W** used by the JSD-stress detector is shared with FigX.6's semantic-numeric rolling cosine through a single policy field `DefensePolicyConfig.semantic_cosine_window` (sidebar "W rolling-window length", default **5 trading days**). The same W drives both the training rolling baseline and the test-window alarm rolling mean. The white solid line labelled **rolling triangle mean (W=5, alarm calibration)** on the chart is the actual trigger series for the red "first breach" vertical line. The legacy parameter `n_jsd` has been retired.
 
-Placeholders: `**0.00000000`** · `**0.00000000**` · `**否**`
+Placeholders: `**0.00000000`** · `**0.00000000`** · `**否**`
 
 ---
 
@@ -58,12 +58,12 @@ Three structural models form three pairwise edges; using the triangle mean avoid
 ### 3.2 Variable mapping (injected at runtime)
 
 
-| Variable                       | Field                                 | Injected value                                               |
-| ------------------------------ | ------------------------------------- | ------------------------------------------------------------ |
-| Triangle mean (cross-day mean) | `phase2.jsd_triangle_mean`            | `**0.00000000`**                                    |
-| Max-of-three-edges mean        | `phase2.jsd_triangle_max`             | `**0.00000000**`                                     |
-| Dynamic threshold              | `k_jsd×max(baseline,eps)`             | `**0.00000000**`                                   |
-| Triggered?                     | `phase2.jsd_stress`                   | `**否**`                                           |
+| Variable                       | Field                                 | Injected value    |
+| ------------------------------ | ------------------------------------- | ----------------- |
+| Triangle mean (cross-day mean) | `phase2.jsd_triangle_mean`            | `**0.00000000`**  |
+| Max-of-three-edges mean        | `phase2.jsd_triangle_max`             | `**0.00000000`**  |
+| Dynamic threshold              | `k_jsd×max(baseline,eps)`             | `**0.00000000**`  |
+| Triggered?                     | `phase2.jsd_stress`                   | `**否**`           |
 | Daily tail (audit)             | `phase2.test_daily_triangle_jsd_mean` | `len=0`, tail=`—` |
 
 
@@ -72,14 +72,14 @@ Three structural models form three pairwise edges; using the triangle mean avoid
 ## 4. Algorithm execution chain
 
 
-| #   | Logical stage          | Input                       | Output                                     | Core algorithm / rule                                                  | Code anchor                                                               |
-| --- | ---------------------- | --------------------------- | ------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 1   | OOS μ/σ series         | `returns`, `test_dates`     | `model_mu_test_ts` / `model_sigma_test_ts` | strict I{t-1}                                                          | `research/phase2.py:run_phase2`                                           |
-| 2   | Triangle JSD (daily)   | per-day μ/σ (cross-asset)   | `test_daily_triangle_jsd_mean`             | pairwise JSD → triangle mean → cross-section mean                      | `research/phase2.py:_js_divergence/_triangle_js`                          |
+| #   | Logical stage          | Input                       | Output                                     | Core algorithm / rule                                                                                 | Code anchor                                                               |
+| --- | ---------------------- | --------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1   | OOS μ/σ series         | `returns`, `test_dates`     | `model_mu_test_ts` / `model_sigma_test_ts` | strict I{t-1}                                                                                         | `research/phase2.py:run_phase2`                                           |
+| 2   | Triangle JSD (daily)   | per-day μ/σ (cross-asset)   | `test_daily_triangle_jsd_mean`             | pairwise JSD → triangle mean → cross-section mean                                                     | `research/phase2.py:_js_divergence/_triangle_js`                          |
 | 3   | Train rolling baseline | `train`                     | `jsd_baseline_mean`                        | rolling triangle mean over window `W = policy.semantic_cosine_window` (default 5), then take its mean | `research/phase2.py` (baseline section)                                   |
-| 4   | Stress trigger         | `daily_tri`, `k_jsd`, `eps` | `jsd_stress`                               | any rolling-mean breach (fallback to full-window mean if insufficient) | `_jsd_stress_rolling_breach`, `research/phase2.py`                        |
-| 5   | Plot                   | `p2`                        | FigX.5                                     | series + threshold line + first-breach vertical line                   | `dash_app/figures.py:fig_defense_jsd_stress_timeseries`                   |
-| 6   | Text injection         | `snap_json` + `policy`      | placeholder substitution in this file      | template substitution                                                  | `dash_app/render/explain/sidebar_right/figx5.py:build_figx5_explain_body` |
+| 4   | Stress trigger         | `daily_tri`, `k_jsd`, `eps` | `jsd_stress`                               | any rolling-mean breach (fallback to full-window mean if insufficient)                                | `_jsd_stress_rolling_breach`, `research/phase2.py`                        |
+| 5   | Plot                   | `p2`                        | FigX.5                                     | series + threshold line + first-breach vertical line                                                  | `dash_app/figures.py:fig_defense_jsd_stress_timeseries`                   |
+| 6   | Text injection         | `snap_json` + `policy`      | placeholder substitution in this file      | template substitution                                                                                 | `dash_app/render/explain/sidebar_right/figx5.py:build_figx5_explain_body` |
 
 
 ---

@@ -43,7 +43,7 @@ def build_figx1_explain_body(
 
     kernel = meta.get("sentiment_st_kernel") or {}
     vm["sentiment_halflife_days"] = (
-        f"{float(kernel.get('halflife_days', getattr(pol, 'sentiment_halflife_days', 7.0) or 7.0)):.2f}"
+        f"{float(kernel.get('halflife_days', getattr(pol, 'sentiment_halflife_days', 2.0) or 2.0)):.2f}"
     )
     vm["sentiment_penalty"] = f"{float(kernel.get('penalty') or 0.0):+.4f}"
     vm["sentiment_severity_boost"] = f"{float(kernel.get('severity_boost') or 0.0):+.4f}"

@@ -31,6 +31,7 @@ from research.sentiment.curation import (
     _merge_headline_lists,
     _select_newapi_gap_days,
 )
+from research.sentiment.sources_cache import load_cached_headlines
 from research.sentiment.sources_crawl import (
     _fetch_akshare_cn_headline_items,
     _fetch_akshare_english_headline_items,
@@ -356,6 +357,22 @@ def _fetch_combined_headline_items(
         except Exception as exc:
             logger.warning("news fetch log not written: %s", exc, exc_info=True)
         return [], base_meta, {}
+
+    # ── Cache-first path (HF Space / CRAWL4AI_ENABLED=0 deployments) ─────────
+    # When running on HuggingFace Spaces or any environment where live news
+    # fetch is unreliable (IP-blocked news hosts, Playwright/Chromium not
+    # installable), replay the committed ``news_fetch_log.json`` instead.
+    # See ``research.sentiment.sources_cache`` for activation rules.
+    cached = load_cached_headlines(max_items=max_items)
+    if cached is not None:
+        cached_items, cached_meta, cached_pool_sizes = cached
+        base_meta.update(cached_meta)
+        logger.info(
+            "[sentiment] fetch replayed from cache: headlines=%d (source=%s)",
+            len(cached_items),
+            base_meta.get("source"),
+        )
+        return cached_items, base_meta, cached_pool_sizes
 
     ak_master = _env_truthy("AKSHARE_NEWS_ENABLED", True)
     use_ak_en = ak_master and _env_truthy("AKSHARE_EN_NEWS_ENABLED", True)

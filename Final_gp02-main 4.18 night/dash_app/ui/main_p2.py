@@ -10,16 +10,16 @@ import plotly.graph_objects as go
 from dash import dcc, html
 
 from dash_app.render.explain import (
-    P2_FIG21_INTRO_MD,
-    P2_PIXEL_SHADOW_INTRO_MD,
+    p2_fig21_intro,
+    p2_pixel_shadow_intro,
 )
 from dash_app.ui.layout import (
     _analysis_card,
-    _fig_explain_title,
     _figure_wrap,
     _placeholder_fig,
+    explain_title_from_figures,
 )
-from dash_app.services.copy import get_app_label, get_status_message
+from dash_app.services.copy import get_app_label, get_figure_title, get_status_message
 
 _P2_MODEL_LABEL = {"naive": "Naive", "arima": "ARIMA", "lightgbm": "LightGBM", "kronos": "Kronos"}
 _P2_MODEL_COLOR = {"naive": "#aaaaaa", "arima": "#00e676", "lightgbm": "#c39bff", "kronos": "#ff7f0e"}
@@ -397,19 +397,21 @@ def main_p2_panel() -> html.Div:
                         style={"height": "300px"},
                         className="mb-2",
                     ),
-                    # Mode-aware container: updated by `_mode_main_panel_refresh` callback
+                    # Mode-aware container: updated by `_caption_refresh_on_mode` callback。
+                    # 标题统一从 figures_titles.md 的 ``fig_2_1_explain`` / ``..._res`` 读取，
+                    # 正文从 ``content-{LANG}/Inv/Fig2.1-Inv.md`` / ``Res-templates/Fig2.1-Res.md`` 加载。
                     html.Div(
                         id="p2-fig21-explain-card",
                         children=_analysis_card(
-                            _fig_explain_title(2, 1, get_app_label(
-                                "p2_fig21_caption",
-                                "影子择模与像素矩阵（MSE / 影子验证 / 综合分）",
-                            )),
-                            P2_PIXEL_SHADOW_INTRO_MD,
+                            explain_title_from_figures(
+                                "fig_2_1_explain", "invest", "Figure 2.1 讲解"
+                            ),
+                            p2_pixel_shadow_intro("invest"),
+                            md_slot_id="p2-fig21-explain-md",
                         ),
                     ),
                 ],
-                fig_label="Figure2.1",
+                fig_label=get_figure_title("fig_2_1", "Figure 2.1 · 影子择模与最佳模型像素矩阵"),
             ),
             dbc.Row(
                 [
@@ -439,7 +441,8 @@ def main_p2_panel() -> html.Div:
                     dbc.Col(
                         html.Div(
                             id="p2-best-model",
-                            className="text-center mt-1",
+                            # 稍右移：在 md 及以上增加一段 padding-start，内容仍居中但视觉整体偏右
+                            className="text-center mt-1 ps-md-5",
                             children=html.Span("—", className="display-6 fw-bold text-info"),
                         ),
                         width=12,
@@ -463,19 +466,21 @@ def main_p2_panel() -> html.Div:
                         config={"displayModeBar": False},
                         style={"height": "460px"},
                     ),
-                    # Mode-aware container: updated by `_mode_main_panel_refresh` callback
+                    # Mode-aware container: updated by `_caption_refresh_on_mode` callback。
+                    # 标题统一从 figures_titles.md 的 ``fig_2_2_explain`` / ``..._res`` 读取，
+                    # 正文从 ``content-{LANG}/Inv/Fig2.2-Inv.md`` / ``Res-templates/Fig2.2-Res.md`` 加载。
                     html.Div(
                         id="p2-fig22-explain-card",
                         children=_analysis_card(
-                            _fig_explain_title(2, 2, get_app_label(
-                                "p2_fig22_caption",
-                                "时间×收益密度（纵轴 · μ 脊线 · 着色）",
-                            )),
-                            P2_FIG21_INTRO_MD,
+                            explain_title_from_figures(
+                                "fig_2_2_explain", "invest", "Figure 2.2 讲解"
+                            ),
+                            p2_fig21_intro("invest"),
+                            md_slot_id="p2-fig22-explain-md",
                         ),
                     ),
                 ],
-                fig_label="Figure2.2",
+                fig_label=get_figure_title("fig_2_2", "Figure 2.2 · 单标的预测收益概率密度图"),
             ),
         ],
     )

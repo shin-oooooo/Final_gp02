@@ -101,7 +101,7 @@ phase_intro_card_header: "Introduction (MeToAI §2)"
 loading_card_title: "Loading data & charts"
 loading_text: "Computing…"
 loading_md_fallback: "Computing the full pipeline — please hold on…"
-project_intro_fallback: "(Please write the project introduction into `dash_app/content/project_intro.md`.)"
+project_intro_fallback: "(Please write the project executive summary into `dash_app/content-ENG/project_executive_summary.md`.)"
 placeholder_compute_prompt: "Click “Apply & Recompute” on the left to start computing"
 inactive_variable_note: "{fig_lbl}: pipeline not executed → current variable has no effect on defense level"
 

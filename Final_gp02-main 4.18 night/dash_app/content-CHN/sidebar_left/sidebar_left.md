@@ -68,7 +68,7 @@ cred_max: "可信度输出上界"
 
 ## 影子测试（择模）参数
 
-shadow_params: "影子测试（择模）参数"
+shadow_params: "影子测试（择模）参数 (Phase 2)"
 
 ### 小标题
 
@@ -79,7 +79,7 @@ help_shadow_holdout: "Holdout 时间窗长度"
 
 ## 模型生成预测结果参数
 
-model_predict_params: "模型生成预测结果参数"
+model_predict_params: "模型生成预测结果参数 (Phase 2)"
 
 ### 小标题
 
@@ -89,7 +89,7 @@ help_oos_steps: "OOS 模型参数更新次数"
 
 ## Level 1 负面语义惩罚放大倍数λ
 
-lambda_params: "Level 1 负面语义惩罚放大倍数λ"
+lambda_params: "Level 1 负面语义惩罚放大倍数λ (Phase 3)"
 
 ### 小标题
 
@@ -99,7 +99,7 @@ None
 
 ## 双轨蒙特卡洛参数
 
-mc_params: "双轨蒙特卡洛参数"
+mc_params: "双轨蒙特卡洛参数 (Phase 3)"
 
 ### 小标题
 
@@ -108,9 +108,9 @@ help_scenario_impact: "「黑天鹅事件」冲击幅度（对数收益率）。
 
 ---
 
-## 模型—市场载荷方向检验参数
+## 模型——模型和模型—市场检验参数
 
-load_test_params: "模型—市场载荷方向背离检验参数"
+load_test_params: "模型——模型和模型—市场检验参数（FigX.5/6)"
 
 ### 小标题
 
@@ -120,7 +120,7 @@ help_semantic_cos_window: "W 计算滚动窗口长度"
 
 ## 预警成功验证参数
 
-verify_params: "预警成功验证参数"
+verify_params: "预警成功验证参数 (Phase4)"
 
 ### 小标题
 
@@ -138,7 +138,9 @@ model_update_params: "模型更新时间参数"
 ### 辅助标签
 
 # 注：data_max_age / auto_refresh / refresh_now 随 R1.10 移除，控件与文案不再
+
 # 在左栏渲染；保留键以便旧 snapshot / 外部文案索引不报 KeyError。
+
 data_max_age: "（已移除）数据刷新门槛 · R1.10 后仅走缺失兜底"
 auto_refresh: "（已移除）启动自动下载 · R1.10 后常驻关闭"
 refresh_now: "（已移除）立即刷新 · R1.10 后由缺失兜底代替"

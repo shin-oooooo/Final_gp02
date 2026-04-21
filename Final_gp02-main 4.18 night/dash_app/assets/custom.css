@@ -692,6 +692,88 @@ input:focus, textarea:focus, .form-control:focus {
   overflow-y: auto;
 }
 
+/* ── 顶栏「当前防御状态」整卡可点按 + 同行横向 reason 展开 ───── */
+/* 布局：[当前防御状态：][Level badge][chevron] [reason chips…]
+   整张 ``.topbar-defense-status-card`` 作为点击区触发
+   ``_toggle_topbar_defense_reasons`` 回调，切换右侧 reasons 的
+   ``display:none / flex``。默认收起。*/
+.topbar-defense-row {
+  row-gap: 0.35rem;
+}
+.topbar-defense-status-card {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 120ms ease-in-out;
+  padding: 2px 6px;
+  border-radius: var(--radius, 6px);
+}
+.topbar-defense-status-card:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+.topbar-defense-chevron {
+  font-size: 0.75rem;
+  color: var(--tx-2);
+  transition: transform 150ms ease-in-out;
+}
+.topbar-defense-chevron.expanded {
+  transform: rotate(0deg);
+}
+.topbar-defense-reasons-inline {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.topbar-reasons-inline {
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  column-gap: 0.5rem;
+}
+.topbar-reason-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.topbar-reason-chip .defense-reason-tag {
+  padding: 4px 8px !important;
+  margin: 0 !important;
+  white-space: normal;
+}
+.topbar-reason-chip .defense-reason-tag .reason-body {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+/* ── 方案 B：dcc.Loading overlay pointer-events 兜底 ────────── */
+/* 主栏 ``dcc.Loading(id="loading-main", overlay_style={"opacity":0.35})``
+   在任何子回调运行期间会叠一层半透明遮罩；若遮罩因 pending 状态未收回，
+   会阻挡其下 ``dbc.Button`` 的点击事件，造成 P4 讲解卡"点不动"。
+   通过以下规则强制让 Loading 所有叠层元素穿透点击，让下层按钮正常接收事件。 */
+.main-dashboard-col #loading-main > ._dash-loading,
+.main-dashboard-col #loading-main > ._dash-loading-callback,
+.main-dashboard-col #loading-main > div[style*="opacity"],
+.main-dashboard-col #loading-main > div[style*="visibility"] {
+  pointer-events: none !important;
+}
+/* 兜底规则：dcc.Loading 任意 spinner / overlay 子元素，全部穿透 */
+.main-dashboard-col #loading-main .dash-spinner,
+.main-dashboard-col #loading-main .dash-spinner-loader,
+.main-dashboard-col #loading-main [aria-hidden="true"] {
+  pointer-events: none !important;
+}
+
+/* ── FigX.4 三盏灯 + NAIVE 改良检验 通过数 ───────────── */
+.figx4-traffic-row {
+  justify-content: flex-start;
+}
+.figx4-lights-group {
+  flex: 0 0 auto;
+}
+.figx4-naive-pass {
+  margin-left: auto;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--tx-2);
+}
+
 .app-kronos-btn {
   max-width: 10rem;
   font-size: 0.68rem !important;
@@ -855,6 +937,18 @@ input:focus, textarea:focus, .form-control:focus {
 .sidebar1-col,
 .sidebar2-col {
   border-right: 1px solid var(--bdr);
+}
+
+/* 主栏列 z-index 高于侧栏，确保主栏内的 analysis-card 按钮不被
+   侧栏的 position:absolute 子元素遮挡（全宽 lg 断点下会发生）。
+   同时给 invest-interpretation-block 内的按钮建立独立 stacking context。 */
+.main-dashboard-col {
+  z-index: 2 !important;
+}
+.invest-interpretation-block .phase-card-header-title,
+.invest-interpretation-block .card-header {
+  position: relative;
+  z-index: 3;
 }
 
 /* ── 滚动视口：三栏各自独立滚动 ─────────────────────────────

@@ -58,12 +58,13 @@ class DefensePolicyConfig(BaseModel):
     tau_s_low: float = Field(-0.20, description="Level 0 sentiment lower bound")
     tau_s_high: float = Field(1.00, description="Level 0 sentiment upper bound")
     sentiment_halflife_days: float = Field(
-        7.0,
+        2.0,
         gt=0.0,
         le=60.0,
         description=(
             "S_t 指数核半衰期（日历日）。每条新闻日 i 对交易日 t 的记忆项权重为 "
-            "w(i,t)=2^{-(t-i)/H}；H=7 为默认（财报/地缘混合）；H=3 偏短期、H=14 偏慢变。"
+            "w(i,t)=2^{-(t-i)/H}；v3.1 默认 H=2（配合 α=1.0/β=0.2/γ=0.10 一起放大日间波动）；"
+            "H=3 偏短期、H=7 偏慢变、H=14 用于慢速事件。"
             "该参数只影响 S_t 的生成，不改变状态机对 min(S_t) 的消费口径。"
         ),
     )

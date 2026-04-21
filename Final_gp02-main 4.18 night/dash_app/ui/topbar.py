@@ -9,9 +9,13 @@ from dash_app.services.copy import get_md_text, get_project_intro, get_topbar_la
 
 
 def _hint_md_text() -> str:
-    """顶栏「使用提示」：文案唯一来源为 dash_app/content/hint_for_webapp.md（与 Feedback 要求一一致）。"""
+    """顶栏「使用提示」：文案来源为 ``content-{LANG}/topbar/hint_for_webapp.md``。
+
+    历史上路径曾在 root 与 ``topbar/`` 子目录之间反复，实际文件位于 ``topbar/``；
+    这里显式指向子目录，避免读到空串让折叠面板「展开后无内容」。
+    """
     return get_md_text(
-        "hint_for_webapp.md",
+        "topbar/hint_for_webapp.md",
         "",
     ).strip()
 
@@ -160,40 +164,59 @@ def _app_masthead() -> html.Div:
                 ),
                 html.Div(
                     [
+                        # ── 运行使用提示 ──
                         html.Div(
-                            [
-                                dbc.Button(
-                                    [
-                                        html.I(className="fa fa-circle-question me-1", style={"fontSize": "1.15rem"}),
-                                        html.Span(get_topbar_label("btn_toggle_hints_label", "Webapp运行与使用提示"), className="small fw-bold"),
-                                    ],
-                                    id="btn-toggle-topbar-hint",
-                                    color="link",
-                                    size="sm",
-                                    className="p-0 d-flex align-items-center gap-1",
-                                    n_clicks=0,
-                                ),
-                            ],
+                            dbc.Button(
+                                [
+                                    html.I(
+                                        className="fa fa-circle-question me-1",
+                                        style={"fontSize": "1.15rem"},
+                                    ),
+                                    html.Span(
+                                        get_topbar_label(
+                                            "btn_toggle_hints_label",
+                                            "Webapp运行与使用提示",
+                                        ),
+                                        className="small fw-bold",
+                                    ),
+                                ],
+                                id="btn-toggle-topbar-hint",
+                                color="link",
+                                size="sm",
+                                className="p-0 d-flex align-items-center gap-1",
+                                n_clicks=0,
+                            ),
                             className="text-end",
                         ),
-                                dbc.Collapse(
-                                    dcc.Markdown(
-                                        _hint_md_text(),
-                                        className="small text-muted mb-0 phase-doc-body",
-                                    ),
-                                    id="topbar-hint-collapse",
-                                    is_open=False,
-                                    className="mb-1",
-                                ),
+                        dbc.Collapse(
+                            dcc.Markdown(
+                                _hint_md_text(),
+                                className="small text-muted mb-0 phase-doc-body",
+                            ),
+                            id="topbar-hint-collapse",
+                            # R4：**运行前默认展开**——这是新用户第一眼看到的
+                            # 操作说明，不应藏起来；用户按 btn-toggle-topbar-hint
+                            # 仍可随时收起。
+                            is_open=True,
+                            className="mb-1",
+                        ),
+                        # ── 当前防御状态卡片：整张卡可点击 → 横向展开 defense-reasons。
+                        # 由 ``_toggle_topbar_reasons`` 回调切换
+                        # ``topbar-defense-reasons-collapse.style`` 的 display；
+                        # 初始收起（display:none）。
+                        html.Div(
+                            [
                                 html.Div(
                                     [
                                         html.Span(
-                                            get_topbar_label("defense_status_prefix", "当前防御状态："),
+                                            get_topbar_label(
+                                                "defense_status_prefix", "当前防御状态："
+                                            ),
                                             className="small text-muted me-1",
                                         ),
                                         html.Div(
                                             id="sb2-defense-level-badge",
-                                            className="mb-0",
+                                            className="mb-0 flex-shrink-0",
                                             children=[
                                                 html.Div(
                                                     html.Div(
@@ -204,78 +227,92 @@ def _app_masthead() -> html.Div:
                                                 ),
                                             ],
                                         ),
-                                        dbc.Button(
-                                            html.I(className="fa fa-angle-down"),
-                                            id="btn-toggle-defense-reasons",
-                                            color="secondary",
-                                            outline=True,
-                                            size="sm",
-                                            className="ms-2 flex-shrink-0",
-                                            n_clicks=0,
-                                            title=get_topbar_label("btn_toggle_defense_reasons", "展开查看各防御条件汇总"),
+                                        html.I(
+                                            className="fa fa-chevron-right ms-2 topbar-defense-chevron",
+                                            id="topbar-defense-status-chevron",
                                         ),
                                     ],
-                                    className="d-flex align-items-center flex-wrap",
+                                    id="topbar-defense-status-card",
+                                    className="topbar-defense-status-card d-flex align-items-center",
+                                    role="button",
+                                    title=get_topbar_label(
+                                        "btn_toggle_defense_reasons",
+                                        "展开查看与当前等级相符的防御条件",
+                                    ),
+                                    n_clicks=0,
                                 ),
-                                dbc.Collapse(
+                                # 与 badge 同一行横向平铺 reason；内容由
+                                # ``render/topbar.py::_build_reasons_inline`` 覆盖，
+                                # 严格只保留与当前等级严重度相符的 tag。
+                                # id 沿用历史名 ``topbar-defense-reasons-collapse``
+                                # 以免破坏既有的管线 Output 接线；实际已不是 Collapse，
+                                # 而是普通 Div，默认 display:none，由回调切换。
+                                html.Div(
                                     id="topbar-defense-reasons-collapse",
-                                    is_open=False,
-                                    className="mt-2",
+                                    className="topbar-defense-reasons-inline ms-2",
+                                    style={"display": "none"},
                                 ),
                             ],
-                            className="app-topbar-cell app-topbar-center",
+                            className="topbar-defense-row d-flex align-items-center flex-wrap gap-2",
+                        ),
+                    ],
+                    className="app-topbar-cell app-topbar-center",
+                ),
+                html.Div(
+                    [
+                        # ── 防御策略介绍：移回右格最顶（主 tab 之上）──
+                        html.Div(
+                            id="topbar-defense-intro-slot",
+                            className="mb-2 app-topbar-defense-intro-slot",
                         ),
                         html.Div(
                             [
-                                html.Div(id="topbar-defense-intro-slot", className="mb-2 app-topbar-defense-intro-slot"),
-                                html.Div(
-                                    [
-                                        dbc.Button(
-                                            get_topbar_label("tab_p0", "资产与研究前提"),
-                                            id="btn-main-tab-p0",
-                                            n_clicks=0,
-                                            size="sm",
-                                            className="main-tab-seg-btn active",
-                                            title=get_topbar_label("tab_p0_title", "资产自定义面板与研究前提"),
-                                        ),
-                                        dbc.Button(
-                                            get_topbar_label("tab_p1", "数据诊断"),
-                                            id="btn-main-tab-p1",
-                                            n_clicks=0,
-                                            size="sm",
-                                            className="main-tab-seg-btn",
-                                            title=get_topbar_label("tab_p1_title", "数据诊断与失效前兆识别"),
-                                        ),
-                                        dbc.Button(
-                                            get_topbar_label("tab_p2", "信号对抗"),
-                                            id="btn-main-tab-p2",
-                                            n_clicks=0,
-                                            size="sm",
-                                            className="main-tab-seg-btn",
-                                            title=get_topbar_label("tab_p2_title", "多范式信号对抗与模型失效识别"),
-                                        ),
-                                        dbc.Button(
-                                            get_topbar_label("tab_p3", "自动防御"),
-                                            id="btn-main-tab-p3",
-                                            n_clicks=0,
-                                            size="sm",
-                                            className="main-tab-seg-btn",
-                                            title=get_topbar_label("tab_p3_title", "自动防御响应"),
-                                        ),
-                                        dbc.Button(
-                                            get_topbar_label("tab_p4", "实验结论"),
-                                            id="btn-main-tab-p4",
-                                            n_clicks=0,
-                                            size="sm",
-                                            className="main-tab-seg-btn",
-                                            title=get_topbar_label("tab_p4_title", "实验结论展示"),
-                                        ),
-                                    ],
-                                    className="main-tab-segment",
+                                dbc.Button(
+                                    get_topbar_label("tab_p0", "资产与研究前提"),
+                                    id="btn-main-tab-p0",
+                                    n_clicks=0,
+                                    size="sm",
+                                    className="main-tab-seg-btn active",
+                                    title=get_topbar_label("tab_p0_title", "资产自定义面板与研究前提"),
+                                ),
+                                dbc.Button(
+                                    get_topbar_label("tab_p1", "数据诊断"),
+                                    id="btn-main-tab-p1",
+                                    n_clicks=0,
+                                    size="sm",
+                                    className="main-tab-seg-btn",
+                                    title=get_topbar_label("tab_p1_title", "数据诊断与失效前兆识别"),
+                                ),
+                                dbc.Button(
+                                    get_topbar_label("tab_p2", "信号对抗"),
+                                    id="btn-main-tab-p2",
+                                    n_clicks=0,
+                                    size="sm",
+                                    className="main-tab-seg-btn",
+                                    title=get_topbar_label("tab_p2_title", "多范式信号对抗与模型失效识别"),
+                                ),
+                                dbc.Button(
+                                    get_topbar_label("tab_p3", "自动防御"),
+                                    id="btn-main-tab-p3",
+                                    n_clicks=0,
+                                    size="sm",
+                                    className="main-tab-seg-btn",
+                                    title=get_topbar_label("tab_p3_title", "自动防御响应"),
+                                ),
+                                dbc.Button(
+                                    get_topbar_label("tab_p4", "实验结论"),
+                                    id="btn-main-tab-p4",
+                                    n_clicks=0,
+                                    size="sm",
+                                    className="main-tab-seg-btn",
+                                    title=get_topbar_label("tab_p4_title", "实验结论展示"),
                                 ),
                             ],
-                            className="app-topbar-cell app-topbar-main",
+                            className="main-tab-segment",
                         ),
+                    ],
+                    className="app-topbar-cell app-topbar-main",
+                ),
             ],
             className="app-topbar-inner",
         ),

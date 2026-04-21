@@ -184,16 +184,17 @@ def _build_alarm_date_banner(date_iso: Optional[str], title: str) -> Any:
     """Fig 4.1a/4.1b 顶行：`{title}：YY.MM.DD`（黑底 · 黄字 · 大字）。
 
     Args:
-        date_iso: ISO 日期（YYYY-MM-DD）；None 或无效 → 显示 `—`。
+        date_iso: ISO 日期（YYYY-MM-DD）；**None 或无效 → 返回空 Div**（运行前 /
+            未触发任何预警日时完全不占位，满足"运行前不留多余字段"的约定）。
         title: 信号中文标题（如 "模型—模型应力预警日"）。
     """
-    label = "—"
-    if isinstance(date_iso, str) and len(date_iso) >= 10:
-        try:
-            y, m, d = date_iso[:10].split("-")
-            label = f"{y[-2:]}.{m}.{d}"
-        except Exception:
-            label = date_iso
+    if not isinstance(date_iso, str) or len(date_iso) < 10:
+        return html.Div()
+    try:
+        y, m, d = date_iso[:10].split("-")
+        label = f"{y[-2:]}.{m}.{d}"
+    except Exception:
+        label = date_iso
     return html.Div(
         [
             html.Span(
@@ -231,9 +232,20 @@ def _build_alarm_date_banner(date_iso: Optional[str], title: str) -> Any:
 def _build_hero_alert(bundle: Fig41Bundle) -> Any:
     """Part 1 右栏：**当前标的 + 大跌提示**（亮红：R^(h) < 阈值；银灰：≥ 阈值）。
 
-    放大字号 / 加厚 / 匹配 ``_info_card`` 的尺寸，使左右栏视觉平衡。
+    **运行前 / idle 状态**（``focus_is_crash is None`` 且 ``focus_symbol`` 为空）
+    直接返回空 ``Div``，避免页面上出现"当前标的：　—　R^(5)=—"这类占位字段。
+    一旦管线产出数据（哪怕是 ``未大跌``），就按正常样式渲染。
     """
     assert isinstance(bundle, Fig41Bundle), f"bundle must be Fig41Bundle, got {type(bundle).__name__}"
+
+    # idle 判定：extract 层缺数据时 ``focus_symbol`` 默认为 "—"、
+    # ``focus_is_crash`` 为 None、``focus_Rh`` 为 None。若三者都落到 idle 形，就不渲染。
+    focus_sym = (bundle.focus_symbol or "").strip()
+    has_crash_decision = bundle.focus_is_crash is not None
+    has_focus_symbol = bool(focus_sym) and focus_sym not in {"—", "-", "--"}
+    has_rh = bundle.focus_Rh is not None
+    if not has_crash_decision and not has_focus_symbol and not has_rh:
+        return html.Div()
 
     focus_label = get_status_message("fig41_hero_focus_label", "当前标的：")
 
@@ -431,39 +443,27 @@ def _build_section_crash(
     baseline_thr: Optional[float],
     hit: bool,
 ) -> Any:
-    """第三部分：大跌点阵（亮红 / 银灰，列对齐）+ 统一说明卡。"""
+    """第三部分：大跌点阵（亮红 / 银灰，列对齐）+ 统一说明卡（独立行）。"""
     title = get_status_message("fig41_section3_title", "第三部分：大跌点阵与占比")
     ratio_lbl = get_status_message("fig41_section3_ratio_lbl", "大跌占比")
 
     value_color = _CRASH_COLOR_ON if hit else _CRASH_COLOR_OFF
+    # R3：信息卡不再与点阵同行；改为「点阵 → 独立卡」纵向排列，避免窄列压缩数字。
     return html.Div(
         [
             html.H6(title, className="small text-muted mt-2"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        _grid_1xN(
-                            post.per_symbol_crash,
-                            post.symbols,
-                            on=_CRASH_COLOR_ON,
-                            off=_CRASH_COLOR_OFF,
-                        ),
-                        xs=12,
-                        md=7,
-                    ),
-                    dbc.Col(
-                        _info_card(
-                            label=ratio_lbl,
-                            value_text=_fmt_pct(post.crash_ratio),
-                            baseline_text=_fmt_pct(baseline_thr),
-                            value_color=value_color,
-                            op=_compare_op(post.crash_ratio, baseline_thr),
-                        ),
-                        xs=12,
-                        md=5,
-                    ),
-                ],
-                className="g-2",
+            _grid_1xN(
+                post.per_symbol_crash,
+                post.symbols,
+                on=_CRASH_COLOR_ON,
+                off=_CRASH_COLOR_OFF,
+            ),
+            _info_card(
+                label=ratio_lbl,
+                value_text=_fmt_pct(post.crash_ratio),
+                baseline_text=_fmt_pct(baseline_thr),
+                value_color=value_color,
+                op=_compare_op(post.crash_ratio, baseline_thr),
             ),
         ]
     )
@@ -474,39 +474,27 @@ def _build_section_tail(
     baseline_thr: Optional[float],
     hit: bool,
 ) -> Any:
-    """第四部分：厚尾 5×N 点阵（紫 / 黄，列对齐）+ 统一说明卡。"""
+    """第四部分：厚尾 5×N 点阵（紫 / 黄，列对齐）+ 统一说明卡（独立行）。"""
     title = get_status_message("fig41_section4_title", "第四部分：厚尾点阵（5×N）与占比")
     ratio_lbl = get_status_message("fig41_section4_ratio_lbl", "单日单资产厚尾点占比")
 
     value_color = _TAIL_COLOR_ON if hit else _TAIL_COLOR_OFF
+    # R3：信息卡独立成行，与点阵不再并排。
     return html.Div(
         [
             html.H6(title, className="small text-muted mt-2"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        _grid_5xN(
-                            post.tail_flags_5xN,
-                            post.symbols,
-                            on=_TAIL_COLOR_ON,
-                            off=_TAIL_COLOR_OFF,
-                        ),
-                        xs=12,
-                        md=7,
-                    ),
-                    dbc.Col(
-                        _info_card(
-                            label=ratio_lbl,
-                            value_text=_fmt_pct(post.tail_ratio),
-                            baseline_text=_fmt_pct(baseline_thr),
-                            value_color=value_color,
-                            op=_compare_op(post.tail_ratio, baseline_thr),
-                        ),
-                        xs=12,
-                        md=5,
-                    ),
-                ],
-                className="g-2",
+            _grid_5xN(
+                post.tail_flags_5xN,
+                post.symbols,
+                on=_TAIL_COLOR_ON,
+                off=_TAIL_COLOR_OFF,
+            ),
+            _info_card(
+                label=ratio_lbl,
+                value_text=_fmt_pct(post.tail_ratio),
+                baseline_text=_fmt_pct(baseline_thr),
+                value_color=value_color,
+                op=_compare_op(post.tail_ratio, baseline_thr),
             ),
         ]
     )
@@ -580,31 +568,27 @@ def _build_verdict_card(hits: Fig41Hits) -> Any:
         else tpl_short.format(verdict=hits.verdict)
     )
 
+    # R3：三指示灯等分均布（``justify-content-around``）；
+    # verdict 大字移到**灯下方独立行**并居中，不再与灯挤在同一行。
     lights = html.Div(
         [
             _traffic_light_dot("Std 越基线", bool(hits.std_above_baseline)),
             _traffic_light_dot("大跌占比越基线", bool(hits.crash_ratio_above_baseline)),
             _traffic_light_dot("厚尾占比越基线", bool(hits.tail_ratio_above_baseline)),
         ],
-        className="d-flex flex-row align-items-center",
+        className="d-flex flex-row justify-content-around align-items-start w-100",
     )
     verdict_block = html.Div(
         verdict_text,
+        className="text-center mt-3",
         style={
             "fontSize": "1.6rem",
             "fontWeight": 900,
             "color": _verdict_text_color(hits.verdict),
             "letterSpacing": "0.03em",
-            "textAlign": "right",
         },
     )
-    body = dbc.Row(
-        [
-            dbc.Col(lights, xs=12, md=7),
-            dbc.Col(verdict_block, xs=12, md=5, className="d-flex align-items-center justify-content-end"),
-        ],
-        className="g-2 align-items-center",
-    )
+    body = html.Div([lights, verdict_block], className="d-flex flex-column w-100")
     return html.Div(
         [
             html.H6(title, className="small text-muted mt-2"),
@@ -642,14 +626,23 @@ def _select_conclusion_case(
     mm_pass = bool(dual and _is_pass(dual.mm_verdict))
     mv_pass = bool(dual and _is_pass(dual.mv_verdict))
 
+    # 语言感知的标题（CHN: "情形 X" / "论点"；ENG: "Case X" / "Thesis"）。
+    # 同一 markdown 文件只允许一种语言风格；选择器按当前语言拼标题并匹配。
+    from dash_app.services.copy import get_language
+
+    lang = (get_language() or "chn").lower()
+    case_word = "情形" if lang == "chn" else "Case"
+    thesis_word = "论点" if lang == "chn" else "Thesis"
+
     if mm_pass and mv_pass:
-        case_hdr = "## 情形 A"
+        letter = "A"
     elif mm_pass and not mv_pass:
-        case_hdr = "## 情形 B"
+        letter = "B"
     elif (not mm_pass) and mv_pass:
-        case_hdr = "## 情形 C"
+        letter = "C"
     else:
-        case_hdr = "## 情形 D"
+        letter = "D"
+    case_hdr = f"## Fig4.1 · {case_word} {letter}"
 
     def _extract_section(text: str, header: str) -> str:
         idx = text.find(header)
@@ -659,7 +652,7 @@ def _select_conclusion_case(
         next_idx = rest.find("\n## ", 1)
         return rest if next_idx == -1 else rest[:next_idx]
 
-    thesis = _extract_section(md_text, "## 论点")
+    thesis = _extract_section(md_text, f"## Fig4.1 · {thesis_word}")
     case_body = _extract_section(md_text, case_hdr)
     parts = [p for p in (thesis, case_body) if p]
     return "\n\n".join(parts) if parts else md_text

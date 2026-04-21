@@ -550,13 +550,22 @@ def _resolve_test_sentiment_path(
     using the scalar ``sentiment_score``. On any failure inside the smoother,
     silently falls back to the scalar path (matches legacy try/except shape).
     """
+    import math as _math
+
     sentiment_effective = float(sentiment_score)
     sentiment_for_defense = float(sentiment_score)
     test_st_list: List[float] = []
     test_st_dates: List[str] = []
     mc_st_path: Optional[List[float]] = None
     test_st_series: Optional[pd.Series] = None
-    halflife = float(getattr(pol, "sentiment_halflife_days", 7.0) or 7.0)
+    halflife = float(getattr(pol, "sentiment_halflife_days", 2.0) or 2.0)
+    # v3 warmup：floor=60 日历天，再按测试窗长度与半衰期动态放大，使训练尾部新闻
+    # 进入 H_t 记忆窗口、消除 prefix 常量段。向下传给 vader_st_series_kernel_smoothed_from_detail。
+    warmup_days_eff = max(
+        60,
+        int(n_test_td) * 2 if n_test_td and n_test_td > 0 else 60,
+        int(_math.ceil(3.0 * halflife)),
+    )
 
     # Diagnostic: always print the shape of the sentiment_detail that the
     # pipeline is about to consume. This is the single source of truth for
@@ -582,7 +591,7 @@ def _resolve_test_sentiment_path(
                 f"pub_range=({_pub_sorted[0] if _pub_sorted else None},"
                 f"{_pub_sorted[-1] if _pub_sorted else None}) "
                 f"test_window=({test_start.date()},{test_end.date()}) "
-                f"warmup_days={int(getattr(pol, 'sentiment_halflife_days', 7.0) * 3) if getattr(pol, 'sentiment_halflife_days', None) else 21} "
+                f"warmup_days={warmup_days_eff} "
                 f"halflife={halflife}",
                 flush=True,
             )
@@ -609,6 +618,7 @@ def _resolve_test_sentiment_path(
                 test_end_cal=test_end.date(),
                 fallback=float(sentiment_score),
                 halflife_days=halflife,
+                warmup_days=warmup_days_eff,
                 penalty=_penalty,
                 severity_boost=_boost,
             )
@@ -686,11 +696,12 @@ def _resolve_test_sentiment_path(
         pass
     _sd_for_meta = sentiment_detail if isinstance(sentiment_detail, dict) else None
     meta_updates["sentiment_st_kernel"] = {
-        "method": "kernel_smoothed_exponential_v2_normalized_tanh",
+        "method": "kernel_smoothed_exponential_v3_1_dayrich_tanh",
         "halflife_days": halflife,
-        "alpha": 0.7,
-        "beta": 0.6,
-        "offset_scale": 0.5,
+        "alpha": 1.0,
+        "beta": 0.2,
+        "offset_scale": 0.10,
+        "warmup_days": int(warmup_days_eff),
         "normalize_kernel": True,
         "soft_clip": "tanh",
         "penalty": float((_sd_for_meta or {}).get("penalty") or 0.0) if _sd_for_meta else 0.0,

@@ -11,7 +11,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 from dash_app.services.copy import get_figure_title, get_status_message
-from dash_app.render.explain import build_fig42_body, p0_aggregate_condition_line
+from dash_app.render.explain import p0_aggregate_condition_line
 from dash_app.figures import fig_p3_triple_test_equity
 
 from dash_app.constants import (
@@ -121,14 +121,30 @@ def _p2_traffic_row(p2: Dict[str, Any], *, large: bool = False, badges_only: boo
         else html.Span()
     )
     if badges_only:
+        # FigX.4 紧凑版：三盏灯稍左置 + 右侧显示 "NAIVE 改良检验：通过 X/3"。
+        # X = green 数量（严格通过 DM 检验的模型数）。
+        pass_n = sum(1 for v in tl.values() if str(v or "").strip().lower() == "green")
+        naive_label = get_status_message(
+            "figx4_naive_improvement_label", "NAIVE改良检验：通过"
+        )
+        naive_text = html.Span(
+            f"{naive_label} {int(pass_n)}/3",
+            className="small text-muted ms-auto pe-1 figx4-naive-pass",
+        )
         return html.Div(
             [
                 html.Div(
-                    [_badge("arima", "ARIMA"), _badge("lightgbm", "LGBM"), _badge("kronos", "Kronos"), fail],
-                    className="d-flex flex-wrap align-items-center justify-content-center gap-1",
+                    [
+                        _badge("arima", "ARIMA"),
+                        _badge("lightgbm", "LGBM"),
+                        _badge("kronos", "Kronos"),
+                        fail,
+                    ],
+                    className="d-flex align-items-center gap-1 ps-1 figx4-lights-group",
                 ),
+                naive_text,
             ],
-            className="mb-0 mt-1 text-center",
+            className="mb-0 mt-1 d-flex align-items-center flex-wrap gap-2 figx4-traffic-row",
         )
     if large:
         return html.Div(
@@ -265,127 +281,24 @@ def _p0_defense_reason_tag_html(
     return _defense_cond_div(body, danger=sev == "danger", warn=sev == "warn")
 
 
-def _p3_semantic_prior_section(dv: Dict[str, Any], meta: Dict[str, Any]) -> dbc.Card:
-    pol_tau_s = dv.get("research_tau_s_low")
-    min_st = dv.get("research_defense_sentiment_min_st")
-    win_lbl = dv.get("research_test_window_label") or "—"
-    sem_day = dv.get("research_semantic_alarm_day_offset")
-    prc_day = dv.get("research_price_instability_day_offset")
-    lead = dv.get("research_semantic_lead_trading_days")
-    early = dv.get("research_early_april_2026_window")
-    scen_step = dv.get("research_scenario_inject_step")
-    st_meta = meta.get("test_sentiment_st") if isinstance(meta, dict) else None
-    lines = [
-        "### 语义先验（测试窗，与 Phase 2 / 防御判定同源）",
-        "",
-        f"- **测试窗**：{win_lbl}",
-        f"- **语义阈**：当分段累积 **S_t** 低于 **τ_S_low = {_fmt_p3_val(pol_tau_s, 3)}** 视为下行语义告警。"
-        f" 防御聚合使用 **min(S_t) ≈ {_fmt_p3_val(min_st, 3)}**（全窗路径谷底，与跳跃参数映射一致）。",
-        "",
-        "#### 事件序：非结构化信号 vs 价格不稳",
-        "",
-    ]
-    if sem_day is not None:
-        lines.append(
-            f"- **语义告警日**：测试窗内**首个** S_t < τ_S_low 的交易日序号 **{int(sem_day)}**（从 0 起计）。"
-        )
-    else:
-        lines.append("- **语义告警日**：未触发，或 S_t 与交易日未对齐 / 缺失。")
-    if prc_day is not None:
-        lines.append(
-            f"- **价格不稳日**：等权组合 **5 日滚动波动**首次高于**全窗 85% 分位**的日序号 **{int(prc_day)}**。"
-        )
-    else:
-        lines.append("- **价格不稳日**：未触发或未计算。")
-    if lead is not None:
-        try:
-            ld = int(lead)
-            if ld > 0:
-                lines.append(
-                    f"- **语义提前量**：**{ld}** 个交易日（价格序号 − 语义序号；**正值**表示语义先验更早)。"
-                )
-            elif ld == 0:
-                lines.append("- **语义提前量**：与价格波动信号同日或不可分先后。")
-            else:
-                lines.append(
-                    f"- **语义提前量**：**{ld}** 日（负值表示价格波动类信号更早）。"
-                )
-        except (TypeError, ValueError):
-            lines.append("- **语义提前量**：—")
-    if early:
-        lines.append("- **时间锚**：测试窗与 **2026 年 4 月上旬**相交，对齐「非稳态」叙事设定。")
-    if scen_step is not None:
-        lines.append(
-            f"- **情景注入步**：蒙特卡洛在第 **{int(scen_step)}** 步注入确定性对数冲击（与压力轨一致）。"
-        )
-    if isinstance(st_meta, dict) and st_meta.get("dates"):
-        lines.append("- **S_t 路径**：见上方「测试窗 S_t」图；本卡为管线写入的离散对照指标。")
-    return dbc.Card(
-        [
-            dbc.CardHeader("语义先验与信息流", className="phase-card-header-title"),
-            dbc.CardBody(dcc.Markdown("\n".join(lines), className="mb-0 phase-doc-body small")),
-        ],
-        className="shadow-sm border-secondary phase-text-panel mt-2",
-    )
-
-
-def _p3_failure_identification_card(dv: Dict[str, Any]) -> dbc.Card:
-    """失效识别 vs 参照压力日：结构熵 / JSD 应力 / 可信度 / 语义–数值余弦的提前量。"""
-
-    def _row_ix(x: Any) -> str:
-        if x is None:
-            return "—"
-        try:
-            return str(int(x))
-        except (TypeError, ValueError):
-            return "—"
-
-    ref_lbl = str(dv.get("research_failure_ref_label") or "—")
-    verdict = str(dv.get("research_failure_early_warning_verdict") or "—")
-    ah = dv.get("research_alarm_day_rolling_h_struct")
-    aj = dv.get("research_alarm_day_rolling_jsd_stress")
-    ac = dv.get("research_alarm_day_credibility_l1")
-    ao = dv.get("research_alarm_day_semantic_cosine_negative")
-    lh = dv.get("research_lead_ref_vs_h_struct")
-    lj = dv.get("research_lead_ref_vs_jsd_stress")
-    lc = dv.get("research_lead_ref_vs_credibility")
-    lo = dv.get("research_lead_ref_vs_semantic_cosine")
-    lines = [
-        "### 失效识别有效性（提前 1～5 交易日口径）",
-        "",
-        f"- **参照压力日**：{ref_lbl}",
-        "",
-        "#### 各信号在测试窗内的**首次**告警行（0 起，与 Phase2 测试行对齐）",
-        "",
-        f"- **滚动结构熵** < τ_h1：第 **{_row_ix(ah)}** 行",
-        f"- **三角 JSD 动态应力**（滚动 W=semantic_cosine_window 日 > k_jsd×训练基线）：第 **{_row_ix(aj)}** 行",
-        f"- **可信度代理** ≤ τ_L1：第 **{_row_ix(ac)}** 行",
-        f"- **语义–数值滚动余弦** < 0：第 **{_row_ix(ao)}** 行",
-        "",
-        "#### 相对参照日的提前量（正 = 信号早于参照）",
-        "",
-        f"- 结构熵：**{_row_ix(lh)}** 行　JSD 应力：**{_row_ix(lj)}** 行　"
-        f"可信度：**{_row_ix(lc)}** 行　余弦：**{_row_ix(lo)}** 行",
-        "",
-        "#### 结论（管线自动判定）",
-        "",
-        verdict,
-    ]
-    return dbc.Card(
-        [
-            dbc.CardHeader("失效识别与提前量", className="phase-card-header-title"),
-            dbc.CardBody(dcc.Markdown("\n".join(lines), className="mb-0 phase-doc-body small")),
-        ],
-        className="shadow-sm border-info border-opacity-25 phase-text-panel mt-2",
-    )
-
-
 def _p4_experiments_stack_block(snap_json: Dict[str, Any], tpl: str, ui_mode: Optional[str] = None) -> Any:
-    """P4 主栏：防御机制有效性（原 Figure3.5 三块权益 + 终端/MC 文本 + 语义先验 + 失效提前量）。"""
+    """P4 主栏实验栈：**只保留** Fig 4.2 三权重累计回报对比图表。
+
+    历史上本栈还附带 `fig42_md`（嵌入在图表里的讲解正文）、**语义先验与信息流**、
+    **失效识别与提前量** 两张卡片；这些在 R2 重构里统一迁出：
+
+    * 讲解文案改由顶层 UI 新增的 ``p4-fig42-explain-card`` 承载，通过
+      ``callbacks/research_panels.py::_caption_refresh_on_mode`` 覆盖，便于在
+      无快照 / 模式切换 / 语言切换时即时更新。
+    * 两张诊断卡片从页面上删除——等同信息已经由 Phase 3 的 MC 摘要与 Fig4.1
+      讲解分别覆盖，保留在这里会造成重复。
+
+    签名保留 ``ui_mode`` 以兼容调用方，但本体不再生成讲解 md。
+    """
+    _ = ui_mode  # noqa: F841 —— 兼容旧签名；讲解文案走 p4-fig42-explain-card。
     p3 = snap_json.get("phase3") or {}
     if not isinstance(p3, dict):
         p3 = {}
-    p0_meta = (snap_json.get("phase0") or {}).get("meta") or {}
     dv_raw = p3.get("defense_validation")
     dv = dv_raw if isinstance(dv_raw, dict) else {}
 
@@ -397,28 +310,172 @@ def _p4_experiments_stack_block(snap_json: Dict[str, Any], tpl: str, ui_mode: Op
         dates, y_ms, y_cu, y_cv, tpl, figure_title=None
     )
 
-    fig42_md = build_fig42_body(ui_mode, snap_json, dv)
-
-    sem_card = _p3_semantic_prior_section(dv, p0_meta if isinstance(p0_meta, dict) else {})
-    fail_card = _p3_failure_identification_card(dv)
     fig42_cap = get_figure_title(
         "fig_4_2",
         "Figure 4.2 · 防御策略有效性检验（三权重测试窗对照）",
     )
+
+    # —— 三权重数值摘要（累计收益 + MDD%）——
+    summary_card = _build_fig42_triple_summary(dv)
+
     return html.Div(
         [
             _figure_wrap(
                 5,
                 [
                     dcc.Graph(figure=fig_triple, config={"displayModeBar": True, "scrollZoom": False}),
-                    dcc.Markdown(fig42_md, className="phase-doc-body small mb-2"),
+                    summary_card,
                 ],
                 fig_label=fig42_cap,
             ),
-            sem_card,
-            fail_card,
         ],
         className="p4-experiments-stack",
+    )
+
+
+def _fmt_cumret(x: Any) -> str:
+    """累计收益格式化：与 build_fig42_body 一致用 4 位小数。"""
+    if x is None:
+        return "—"
+    try:
+        xf = float(x)
+        return f"{xf:.4f}" if math.isfinite(xf) else "—"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _fmt_mdd_pct(x: Any) -> str:
+    """MDD% 格式化：2 位小数（与 build_fig42_body 一致）。"""
+    if x is None:
+        return "—"
+    try:
+        xf = float(x)
+        return f"{xf:.2f}" if math.isfinite(xf) else "—"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _rank_arrow(values: List[Any], idx: int, best_is_min: bool) -> str:
+    """给定三个数值里第 ``idx`` 个值，返回「最优 / 居中 / 最差」指示字符：
+    最优→↑（绿），最差→↓（红），其余→·（灰）；数值缺失或非数返回空。
+    """
+    try:
+        nums = [float(v) for v in values]
+    except (TypeError, ValueError):
+        return ""
+    finite = [x for x in nums if math.isfinite(x)]
+    if not finite or not math.isfinite(nums[idx]):
+        return ""
+    best = min(finite) if best_is_min else max(finite)
+    worst = max(finite) if best_is_min else min(finite)
+    v = nums[idx]
+    if v == best and v != worst:
+        return "↑"
+    if v == worst and v != best:
+        return "↓"
+    return "·"
+
+
+def _build_fig42_triple_summary(dv: Dict[str, Any]) -> Any:
+    """Fig 4.2 三权重数值摘要卡（累计收益 + MDD% × Max-Sharpe / 自定义 / CVaR）。
+
+    - 卡样式与 Fig 4.1 信息卡风格统一：黑底 + 深灰框 + 表格化数值。
+    - 「↑ / ↓ / ·」符号按行独立排名：累计收益行越大越好（↑）、MDD 行越小越好（↑）。
+    """
+    cum_vals = [
+        dv.get("test_terminal_cumret_max_sharpe"),
+        dv.get("test_terminal_cumret_custom_weights"),
+        dv.get("test_terminal_cumret_cvar"),
+    ]
+    mdd_vals = [
+        dv.get("test_mdd_pct_max_sharpe"),
+        dv.get("test_mdd_pct_custom_weights"),
+        dv.get("test_mdd_pct_cvar"),
+    ]
+    mdd_abs = []
+    for v in mdd_vals:
+        try:
+            mdd_abs.append(abs(float(v)) if v is not None else None)
+        except (TypeError, ValueError):
+            mdd_abs.append(None)
+
+    col_names = ["Max-Sharpe（蓝）", "自定义（灰虚）", "CVaR / Adaptive（红）"]
+
+    def _cell(text: str, mark: str) -> html.Td:
+        color = {
+            "↑": "#69f0ae",
+            "↓": "#ff5252",
+            "·": "#bdbdbd",
+            "": "#e0e0e0",
+        }.get(mark, "#e0e0e0")
+        inner: List[Any] = [html.Span(text, className="fw-bold", style={"fontSize": "1.2rem"})]
+        if mark:
+            inner.append(
+                html.Span(
+                    f" {mark}",
+                    className="ms-1",
+                    style={"color": color, "fontSize": "1rem", "fontWeight": 800},
+                )
+            )
+        return html.Td(inner, className="text-center py-2", style={"color": "#e0e0e0"})
+
+    def _header_cell(text: str) -> html.Th:
+        return html.Th(text, className="text-center small", style={"color": "#9aa0a6"})
+
+    def _row(label: str, values: List[Any], fmt, best_is_min: bool) -> html.Tr:
+        marks = [_rank_arrow(values, i, best_is_min) for i in range(3)]
+        cells = [
+            html.Td(
+                label,
+                className="small fw-bold",
+                style={"color": "#cfd2d8", "minWidth": "120px"},
+            )
+        ]
+        for i, v in enumerate(values):
+            cells.append(_cell(fmt(v), marks[i]))
+        return html.Tr(cells)
+
+    header_row = html.Tr(
+        [html.Th("", style={"minWidth": "120px"})]
+        + [_header_cell(n) for n in col_names]
+    )
+    tbl = dbc.Table(
+        [
+            html.Thead(header_row),
+            html.Tbody(
+                [
+                    _row("累计收益", cum_vals, _fmt_cumret, best_is_min=False),
+                    _row("最大回撤 %", mdd_abs, _fmt_mdd_pct, best_is_min=True),
+                ]
+            ),
+        ],
+        bordered=False,
+        hover=False,
+        size="sm",
+        className="mb-0",
+        style={"backgroundColor": "transparent"},
+    )
+    return html.Div(
+        [
+            html.Div(
+                get_status_message("fig42_triple_summary_title", "三权重数值摘要（测试窗终端）"),
+                className="small mb-2",
+                style={"color": "#9aa0a6", "fontWeight": 600},
+            ),
+            tbl,
+            html.Div(
+                get_status_message(
+                    "fig42_triple_summary_legend",
+                    "↑ = 该行最优（累计收益越大越好 / MDD 越小越好）·  ↓ = 该行最差 ·  · = 居中",
+                ),
+                className="small text-muted mt-2",
+            ),
+        ],
+        className="py-3 px-3 mt-2 rounded",
+        style={
+            "backgroundColor": "#000000",
+            "border": "1px solid #444",
+        },
     )
 
 

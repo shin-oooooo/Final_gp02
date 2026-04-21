@@ -25,8 +25,17 @@ import copy
 
 def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
     def _build_idle_snapshot() -> Dict[str, Any]:
-        """构造一个"空载"的快照，让下游 render 走正常路径得到占位组件。"""
+        """构造一个"空载"的快照，让下游 render 走正常路径得到占位组件。
+
+        关键：``_is_idle`` 标记让 ``render/sidebar_right.py::_build_reason_strip``
+        识别"未运行管线"态，并为 FigX.1~6 返回 success 级别的占位 defense-tag。
+        否则 ``h_struct=0.0`` 会撞 ``figx2_condition_line`` 的 if 分支（warn）、
+        ``credibility_score=0.0`` 会撞 ``figx4_condition_line`` 的 if 分支（danger）;
+        再加上 level 0 的过滤策略（只展 success），就会出现"运行前 FigX.2 /
+        FigX.4 defense-tag 看不到"的现象。
+        """
         return {
+            "_is_idle": True,
             "defense_level": 0,
             "phase0": {"meta": {}, "environment_report": {},
                        "beta_steady": {}, "beta_stress": {},
@@ -45,7 +54,7 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
         }
 
     def _pipeline_render_idle(theme: Optional[str], ui_mode: Optional[str]) -> Tuple[Any, ...]:
-        """未点「保存并运行」：占位输出（53 元组，与 render_dashboard_outputs 同壳）。"""
+        """未点「保存并运行」：占位输出（54 元组，与 render_dashboard_outputs 同壳）。"""
         syms = _flatten_universe(copy.deepcopy(_DEFAULT_UNIVERSE))
         return render_dashboard_outputs(
             DefensePolicyConfig(),
@@ -59,7 +68,7 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
         )
 
     def _pipeline_render_after_exception(tb_str: str, theme: Optional[str]) -> Tuple[Any, ...]:
-        """管线抛错后的 53 元组：用 idle 壳 + 覆盖第 1 槽（diagnostic-summary）为错误 Alert。"""
+        """管线抛错后的 54 元组：用 idle 壳 + 覆盖第 1 槽（header-status）为错误 Alert。"""
         base = list(_pipeline_render_idle(theme, ui_mode=None))
         err_alert = dbc.Alert(
             [
@@ -73,7 +82,7 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
             color="danger",
             className="py-2 mb-2",
         )
-        base[0] = err_alert                       # slot 1 = diagnostic-summary
+        base[0] = err_alert                       # slot 1 = header-status
         return tuple(base)
     
     @app.callback(
@@ -196,66 +205,67 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
             )
     
     @app.callback(
-        # main_p0（9 槽）
-        Output("diagnostic-summary", "children"),             # 1
-        Output("header-status", "children"),                  # 2
-        Output("fig-p0-corr", "figure"),                      # 3
-        Output("fig-p0-beta", "figure"),                      # 4
-        Output("p0-heatmap-text", "children"),                # 5
-        Output("p0-beta-text-stack", "children"),             # 6
-        Output("p0-asset-class-analysis", "children"),        # 7
-        Output("p0-noise-level", "children"),                 # 8
-        Output("about-phase0-logic", "children"),             # 9
+        # main_p0（7 槽；历史 9 槽中的 diagnostic-summary / p0-noise-level 已删除）
+        Output("header-status", "children"),                  # 1
+        Output("fig-p0-corr", "figure"),                      # 2
+        Output("fig-p0-beta", "figure"),                      # 3
+        Output("p0-heatmap-text", "children"),                # 4
+        Output("p0-beta-text-stack", "children"),             # 5
+        Output("p0-asset-class-analysis", "children"),        # 6
+        Output("about-phase0-logic", "children"),             # 7
         # main_p1（3 槽）
-        Output("p1-asset-cards", "children"),                 # 10
-        Output("card-p1", "children"),                        # 11
-        Output("p1-group-analysis", "children"),              # 12
+        Output("p1-asset-cards", "children"),                 # 8
+        Output("card-p1", "children"),                        # 9
+        Output("p1-group-analysis", "children"),              # 10
         # main_p2（5 槽；原 13 个中 8 个隐藏占位已删除）
-        Output("p2-symbol", "options"),                       # 13
-        Output("p2-symbol", "value"),                         # 14
-        Output("p2-best-model", "children"),                  # 15
-        Output("fig-p2-best-pixels", "figure"),               # 16
-        Output("fig-p2-density", "figure"),                   # 17
+        Output("p2-symbol", "options"),                       # 11
+        Output("p2-symbol", "value"),                         # 12
+        Output("p2-best-model", "children"),                  # 13
+        Output("fig-p2-best-pixels", "figure"),               # 14
+        Output("fig-p2-density", "figure"),                   # 15
         # main_p3（5 槽；原 4 槽 + 新增 fig-p3-best-table = Figure3.1）
-        Output("objective-banner", "children"),               # 18
-        Output("fig-p3-mc", "figure"),                        # 19
-        Output("fig-p3-weights", "figure"),                   # 20
-        Output("card-p3", "children"),                        # 21
-        Output("fig-p3-best-table", "figure"),                # 22 Figure3.1
-        # main_p4（8 槽：Fig4.1a × 3 + Fig4.1b × 3 + 结论 × 1 + 实验栈 × 1）
-        Output("p4-experiments-stack", "children"),           # 23
-        Output("p4-fig41-jsd", "figure"),                     # 24 Fig4.1a chart
-        Output("p4-verify-hero", "children"),                 # 25 Fig4.1a hero
-        Output("p4-fig41-analysis-md", "children"),           # 26 Fig4.1a banner+panel
+        Output("objective-banner", "children"),               # 16
+        Output("fig-p3-mc", "figure"),                        # 17
+        Output("fig-p3-weights", "figure"),                   # 18
+        Output("card-p3", "children"),                        # 19
+        Output("fig-p3-best-table", "figure"),                # 20 Figure3.1
+        # main_p4（11 槽：Fig4.1a × 4 + Fig4.1b × 4 + Fig4.1 结论 + 实验栈 + Fig4.2 结论）
+        Output("p4-experiments-stack", "children"),           # 21
+        Output("p4-fig41-alarm-banner", "children"),          # 22 Fig4.1a alarm day banner
+        Output("p4-fig41-jsd", "figure"),                     # 23 Fig4.1a chart
+        Output("p4-verify-hero", "children"),                 # 24 Fig4.1a hero
+        Output("p4-fig41-analysis-md", "children"),           # 25 Fig4.1a Part 2-5 / fallback
+        Output("p4-fig41b-alarm-banner", "children"),         # 26 Fig4.1b alarm day banner
         Output("p4-fig41b-jsd", "figure"),                    # 27 Fig4.1b chart
         Output("p4-fig41b-verify-hero", "children"),          # 28 Fig4.1b hero
-        Output("p4-fig41b-analysis-md", "children"),          # 29 Fig4.1b banner+panel
-        Output("p4-fig41-conclusion", "children"),            # 30 独立结论卡
+        Output("p4-fig41b-analysis-md", "children"),          # 29 Fig4.1b Part 2-5 / fallback
+        Output("p4-fig41-conclusion", "children"),            # 30 Fig4.1 独立结论卡
+        Output("p4-fig42-conclusion", "children"),            # 31 Fig4.2 独立结论卡
         # sidebar_right（21 槽）
-        Output("sb2-p2-traffic-lights", "children"),          # 31
-        Output("sb2-defense-level-badge", "children"),        # 32
-        Output("sb2-fig-st", "figure"),                       # 33
-        Output("sb2-fig-h-struct", "children"),               # 34
-        Output("sb2-fig-consistency", "children"),            # 35
-        Output("sb2-fig-jsd-stress", "figure"),               # 36
-        Output("sb2-fig-cosine", "figure"),                   # 37
-        Output("sb2-fig-jsd-stress-reason", "children"),      # 38
-        Output("sb2-fig-cosine-reason", "children"),          # 39
-        Output("sb2-fig-st-reason", "children"),              # 40
-        Output("sb2-fig-h-struct-reason", "children"),        # 41
-        Output("sb2-fig-consistency-reason", "children"),     # 42
-        Output("figure-caption-bundle", "data"),              # 43
-        Output("sb2-explain-slot-01", "children"),            # 44 FigX.1
-        Output("sb2-explain-slot-02", "children"),            # 45 FigX.2
-        Output("sb2-fig-vol-ac1-cards", "children"),          # 46 FigX.3 cards
-        Output("sb2-fig-vol-ac1-reason", "children"),         # 47 FigX.3 reason
-        Output("sb2-explain-slot-03", "children"),            # 48 FigX.3 explain
-        Output("sb2-explain-slot-04", "children"),            # 49 FigX.4
-        Output("sb2-explain-slot-05", "children"),            # 50 FigX.5
-        Output("sb2-explain-slot-06", "children"),            # 51 FigX.6
+        Output("sb2-p2-traffic-lights", "children"),          # 32
+        Output("sb2-defense-level-badge", "children"),        # 33
+        Output("sb2-fig-st", "figure"),                       # 34
+        Output("sb2-fig-h-struct", "children"),               # 35
+        Output("sb2-fig-consistency", "children"),            # 36
+        Output("sb2-fig-jsd-stress", "figure"),               # 37
+        Output("sb2-fig-cosine", "figure"),                   # 38
+        Output("sb2-fig-jsd-stress-reason", "children"),      # 39
+        Output("sb2-fig-cosine-reason", "children"),          # 40
+        Output("sb2-fig-st-reason", "children"),              # 41
+        Output("sb2-fig-h-struct-reason", "children"),        # 42
+        Output("sb2-fig-consistency-reason", "children"),     # 43
+        Output("figure-caption-bundle", "data"),              # 44
+        Output("sb2-explain-slot-01", "children"),            # 45 FigX.1
+        Output("sb2-explain-slot-02", "children"),            # 46 FigX.2
+        Output("sb2-fig-vol-ac1-cards", "children"),          # 47 FigX.3 cards
+        Output("sb2-fig-vol-ac1-reason", "children"),         # 48 FigX.3 reason
+        Output("sb2-explain-slot-03", "children"),            # 49 FigX.3 explain
+        Output("sb2-explain-slot-04", "children"),            # 50 FigX.4
+        Output("sb2-explain-slot-05", "children"),            # 51 FigX.5
+        Output("sb2-explain-slot-06", "children"),            # 52 FigX.6
         # topbar（2 槽）
-        Output("topbar-defense-intro-slot", "children"),      # 52
-        Output("topbar-defense-reasons-collapse", "children"),# 53
+        Output("topbar-defense-intro-slot", "children"),      # 53
+        Output("topbar-defense-reasons-collapse", "children"),# 54
         # inputs / state
         Input("last-snap", "data"),
         Input("defense-policy-config", "data"),
@@ -263,10 +273,20 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
         Input("pipeline-render-ctx", "data"),
         Input("sl-tau-l2-l1", "value"),
         Input("sl-tau-h1", "value"),
+        # 语言切换由 ``app_shell._lang_rebuild_children`` 重建 ``lang-aware-children``
+        # 后原子写入；本回调监听 tick 重新渲染整张面板，确保新挂载的组件用新语言
+        # 文案重新填充图表与文字（见 ui/layout.py 顶部说明）。
+        Input("lang-rebuild-tick", "data"),
+        # 研究 / 投资按钮：提升为 Input，使未点「保存并运行」时切换也能**实时**触发
+        # 整面板重绘（P0/P1/P2/P3/P4 + sidebar_right 的所有 mode-aware 组件），
+        # 不必等 ``_caption_refresh_on_mode`` 那 20 叠部分覆盖。
+        Input("radio-ui-mode", "data"),
+        # Fig4.1a / 4.1b 两个独立的标的搜索框：提升为 Input，使抽换标的时右侧
+        # hero / 预警日 banner / Chart 1 能立刻刷新。
+        Input("p4-verify-search", "value"),
+        Input("p4-verify-search-b", "value"),
         State("theme-store", "data"),
         State("p2-symbol", "value"),
-        State("p4-verify-search", "value"),
-        State("radio-ui-mode", "data"),
         prevent_initial_call=False,
     )
     def _render_dashboard_face(
@@ -276,10 +296,12 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
         render_ctx,
         tau_l2_l1_live,
         tau_h1_live,
+        _lang_tick,
+        ui_mode,
+        p4_search_a,
+        p4_search_b,
         theme,
         p2_sym_state,
-        p4_search,
-        ui_mode,
     ):
         ctx = render_ctx if isinstance(render_ctx, dict) else {}
         kind = str(ctx.get("kind") or "idle")
@@ -310,14 +332,23 @@ def register_dashboard_pipeline_callbacks(app: dash.Dash) -> None:
                     s_val = -0.1
             except (TypeError, ValueError):
                 s_val = -0.1
-            # Optional: quick symbol override by P4 search box
-            p2_sel = p2_sym_state
-            if isinstance(p4_search, str) and p4_search.strip():
-                q = p4_search.strip().upper()
+
+            # 两个搜索框完全独立：只要命中当前 symbols 列表就生效，否则回退到 p2_sym_state。
+            def _resolve_focus(q: Any) -> Optional[str]:
+                if not isinstance(q, str) or not q.strip():
+                    return None
+                qu = q.strip().upper()
                 for s in sym:
-                    if q in str(s).upper():
-                        p2_sel = s
-                        break
-            return render_dashboard_outputs(pol, last_snap, sym, api_err, s_val, theme, p2_sel, ui_mode)
+                    if qu in str(s).upper():
+                        return s
+                return None
+
+            focus_a = _resolve_focus(p4_search_a) or (p2_sym_state if isinstance(p2_sym_state, str) else None)
+            focus_b = _resolve_focus(p4_search_b) or (p2_sym_state if isinstance(p2_sym_state, str) else None)
+
+            return render_dashboard_outputs(
+                pol, last_snap, sym, api_err, s_val, theme, p2_sym_state, ui_mode,
+                p4_focus_a=focus_a, p4_focus_b=focus_b,
+            )
         return _pipeline_render_idle(theme, ui_mode)
     

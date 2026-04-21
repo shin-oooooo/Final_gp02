@@ -74,12 +74,17 @@ def create_dash_app(route_prefix: str = "/", requests_prefix: str | None = None)
     )
 
     def _serve_layout():
-        """Per-request layout factory：读 ``?lang=`` → 切换 services/copy 语言 → 组装 layout。"""
+        """Per-request layout factory：读 ``?lang=`` → 切换 services/copy 语言 → 组装 layout。
+
+        左栏「研究项目综述」那张"项目综述"卡片现在读 ``project_executive_summary.md``
+        （历史上读的是 ``project_intro.md``，但那份文件已经长期为空；topbar 标题仍
+        单独走 ``get_project_intro()`` 读 ``project_intro.md`` 的 YAML frontmatter）。
+        """
         lang = _resolve_lang_from_request()
         set_language(lang)
         project_intro_md = get_md_text(
-            "project_intro.md",
-            "（可将项目统一介绍写入 `dash_app/content-CHN/project_intro.md`。）",
+            "project_executive_summary.md",
+            "（可将项目综述写入 `dash_app/content-CHN/project_executive_summary.md`。）",
         )
         loading_dashboard_md = get_md_text(
             "loading_dashboard.md",

@@ -165,8 +165,9 @@ def sidebar_right_column() -> dbc.Col:
                                         children=credibility_rail(0.0, 0.45, 0.70, show_marker=False),
                                         className="sb2-metric-rail-wrap",
                                     ),
-                                    html.Div(id="sb2-fig-consistency-reason", className="mt-2 sb2-figx-reason-below"),
+                                    # 顺序调整：三盏灯（左 + 右侧 "NAIVE 改良检验：通过X/3"）→ defense-tag 下移 → 讲解卡
                                     html.Div(id="sb2-p2-traffic-lights", className="mt-2"),
+                                    html.Div(id="sb2-fig-consistency-reason", className="mt-2 sb2-figx-reason-below"),
                                     html.Div(
                                         id="sb2-explain-slot-04",
                                         children=[
