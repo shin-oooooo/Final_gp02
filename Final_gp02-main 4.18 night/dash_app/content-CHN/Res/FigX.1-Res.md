@@ -192,6 +192,7 @@ $$
 - **标量/序列双口径易被误读**：图上最显眼的是 `st_last`，但状态机用的是 `st_min`；审计必须以 `st_min` 为准。
 - **MVP 指数核的时间分辨局限**：`penalty`、`severity_boost` 仍按整窗一次性计算并以常量形式加到每一天；单一关键词事件在本 MVP 版中不会呈现「脉冲→衰减」形状，只体现为基线偏置。进阶版（后续工作）会对 penalty 同样做指数核平滑。
 - **半衰期 H 是超参**：过短 → 历史记忆权重快速衰减，S_t 接近当日 VADER 的噪声；过长 → 事件影响持续过久，对短噪声同样不鲁棒。v3.1 默认 H=2 日历天（偏短期，突显日间波动）；在事件密集/稀疏窗口中可通过 `DefensePolicyConfig.sentiment_halflife_days` 调节，慢速事件可用 H=7 或 H=14。
+- **合成兜底非真实信号**：Guard#2 触发的 `tanh(fallback + γ(P+B)) + 正弦扰动` 是可见的确定性占位，**不代表真实情绪**；审计时必须以 `meta["sentiment_st_trace"]` 中的 `synthetic_reason` 为准，出现 `no_headlines_in_extended_warmup` / `kernel_output_near_constant` 时应复核 headline 抓取与日期窗口。
 
 ---
 

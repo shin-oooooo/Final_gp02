@@ -45,10 +45,10 @@ In the defense system, emotions are not meant to "explain benefits", but to prov
 
 **Side effects of v1 exponential kernel (unnormalized)**: For the window of "almost all negative news", `H_t` monotonically accumulates to −1 with the news density; then superimpose the two negative constants of `penalty + severity_boost` for the entire window, S_t is easily hard clipped in the narrow band of [−1, −0.9], and no fluctuation is visually visible.
 
-**v2 caliber (current version · normalization + damping + soft truncation)** - for each test trading day t (corresponding to calendar day `t_cal`):
+**v2 caliber (current version · normalization + damping + soft truncation)** — for each test trading day t (corresponding to calendar day `t_cal`):
 
 $$
-S_t = \operatorname{softclip}\Bigl(\alphaV_t + \beta\mathcal{H}_t + \gamma(P+B)\Bigr),\qquad \operatorname{softclip}(x)=\tanh(x)
+S_t = \operatorname{softclip}\bigl(\alpha\,V_t + \beta\,\mathcal{H}_t + \gamma(P+B)\bigr),\qquad \operatorname{softclip}(x)=\tanh(x)
 $$
 
 - **Today item V_t**: If there is a headline on the calendar day of trading day t, take the robust aggregation of VADER `compound` on that day (sample <5 median, ≥5 take 20% censored mean), and clip to [−1,+1]; otherwise it is 0.
@@ -59,13 +59,20 @@ $$
   After normalization, the dimension of `H_t` is consistent with `V_t`, and **does not accumulate monotonically with news density** - "more negative news" will only make `H_t` closer to the historical daily average, but will not peg S_t at −1.
 - **Vibration damping constant offset γ(P+B)**: directly take the `penalty` (keyword risk ∈ [−0.35, +0.15]) and `severity_boost` (per-ticker context correction ∈ [−0.70, +0.25]) calculated in one time for the entire window in `sentiment_detail`, and multiply them by γ for compression to avoid individual contributions that directly push S_t out of the upper and lower bounds.
 - **tanh soft truncation**: converge with S-shape asymptotically at ±1, avoiding plateau; `soft_clip="hard"` degenerates into the old hard clip.
-- **Training window warm-up**: When filtering headlines, push the lower limit forward by `warmup_days = ⌈3·H⌉` calendar days, so that `H_t` on the first day of the test already has the training tail news memory.
+- **Training-window warm-up (v3 key change)**: at headline-filtering time, push the lower bound forward by `warmup_days = max(60, 2·n_test_td, ⌈3·H⌉)` calendar days (computed in `research/pipeline.py::_resolve_test_sentiment_path` and passed in explicitly). Raising the floor from v2's bare `⌈3·H⌉` to **at least 60** feeds training-tail headlines into the `H_t` memory early enough to **eliminate** the cold-start constant prefix where `V_t=H_t=0 → S_t ≡ tanh(offset_const)`.
 - **Default parameters (v3.1)**: α=**1.0**, β=**0.2**, γ=**0.10**, H=**2** calendar days; `normalize_kernel=True`, `soft_clip="tanh"`, `include_today_in_memory=False`. vs v3 (0.7/0.4/0.3/3) — only four scalar knobs turned, formula unchanged: α↑ (full weight on today), β↓ (historical low-pass halved), γ↓ (constant offset cut from −0.27 to −0.09 when penalty≈−0.3 + boost≈−0.6), H↓ (memory even shorter). Expected ptp lifts from ≈0.65 to ≈0.9~1.0 and mean(S_t) rises from ≈−0.63 to ≈−0.25.
 - **Double-layer filtering gate (new in v2)**: The news crawling side is switched to the general **Seed thesaurus gate** `_headline_passes_seed_gate`:
   - Fragments with word count < 4 / length < 16 characters → reject;
   - hit `_HEADLINE_PAGE_NAV_JUNK_RE` ("penny stocks", "tax brackets", "budget & performance", "administrative law judge", "harmed investors", NewsAPI rate excess text, etc.) → reject;
   - Missed on any of the `CRAWL4AI_TITLE_SEED_TERMS` seed words → Reject.
   **Available for all sources** (RSS / NewsAPI / Google News Geo / AKShare / Crawl4AI), controlled by the environment variable `NEWS_SEED_GATE_ALL_POOLS=1` (enabled by default).
+
+- **Three-layer constant-trap guards (introduced in v2, synthetic amplitudes scaled up 10× in v3.1)** — cover the three degenerate regimes "no headlines in the filter window", "all headlines land on a single day", and "`per_day` non-empty but `H_t` collapses to a constant". They guarantee **S_t never degenerates into a flat line** and stamp the firing branch into `sentiment_detail["_st_trace"]`, surfaced in the `[S_t]` console line and the FigX.1 diagnostic block:
+  - **Guard #1 (extended look-back retry)**: if `per_day` is empty within `warm_start..test_end`, extend the look-back to `max(2·warmup_days, 90)` calendar days and re-aggregate — this lets distant training-tail headlines still build a **decaying but non-constant** `𝒢_t`.
+  - **Guard #2 (no headlines → synthetic fallback)**: still empty after extension, bypass the main `V_t + H_t` loop entirely; emit `tanh(fallback + γ(P+B))` plus a deterministic **±0.30·sin(φ) + ±0.10·sin(3φ)** sine jitter (v3.1: amplitudes were 0.03/0.01 and got squashed by tanh's ≈0.64 derivative at |base|≈0.6 down to `ptp≈0.035`, which looked identical to a flat line). Tags `synthetic_reason="no_headlines_in_extended_warmup"`.
+  - **Guard #3 (kernel near-constant → overlay jitter)**: main loop completed but `ptp < 5e-4` (typical cause: all headlines on the same calendar day, so `H_t` is constant from that day onward). Overlay **±0.20·sin(φ) + ±0.08·sin(3φ)** on top of `S_t`. Tags `synthetic_reason="kernel_output_near_constant"`.
+
+- **Parameter echo log (new in v3.1)**: `vader_st_series_kernel_smoothed_from_detail` prints `[S_t:params] alpha=... beta=... gamma=... H=... warmup=... P=... B=... offset_const=...` at entry. Seeing α=0.7 / β=0.4 / γ=0.3 / H=3 in the console means the process is still running **old v3 bytecode** — clear `__pycache__` and restart.
 
 ### 2.3 Scoring object and variable dictionary
 
@@ -104,7 +111,7 @@ $$
 | --- | ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | 1 | News summary | `sentiment_detail` | dated headlines + `penalty` + `severity_boost` | Fetch/remove/capping/rule correction + keyword penalty + per-ticker correction | `research/sentiment_proxy.py` |
 | 2 | Daily robust aggregation | `published` + `compound` of headlines | M_i,\ i\in \mathcal{N} | Daily: <5 takes the median, ≥5 takes the 20% censored mean, clip to [−1,+1] | `_robust_daily_compound`, `research/sentiment_proxy.py` |
-| 3 | Exponential kernel convolution generates S_t | M_i + trading index + `halflife_days` + `penalty` + `severity_boost` | `st_test` | `vader_st_series_kernel_smoothed_from_detail`, `research/pipeline.py` |
+| 3 | Exponential kernel convolution generates S_t | M_i + trading index + `halflife_days` + `penalty` + `severity_boost` | `st_test` | S_t=\tanh\bigl(\alpha V_t+\beta\mathcal{H}_t+\gamma(P+B)\bigr); kernel distances in calendar days; Guard#1/#2/#3 kick in on degenerate branches | `vader_st_series_kernel_smoothed_from_detail`, `research/pipeline.py` |
 | 4 | Snapshot writing | `st_test` + kernel diagnostics | `meta.test_sentiment_st` + `meta.sentiment_st_kernel` | dates/values + {method, halflife_days, penalty, boost, vader_avg, n} | `research/pipeline.py` |
 | 5 | State machine input | `st_test` | `sentiment_for_defense=min(S_t)` | Risk memory (worst day) | `research/defense_state.py:resolve_defense_level` |
 | 6 | UI mapping | `meta.test_sentiment_st` | FigX.1 polyline + horizontal line | y-axis fixed [-1.05,1.05], fallback branch marked red | `dash_app/figures.py:fig_st_sentiment_path` |
@@ -143,6 +150,11 @@ See **`Figure2.1-Res.md` §6.2～§6.4**.
 
 - \tau_{S,low} only participates in the **conditional comparison** of Level0/Level1 and does not participate in the generation of S_t; therefore "adjusting the threshold" will not change the polyline shape of FigX.1, but only changes "how the polyline is interpreted by the state machine".
 
+### 6.3 Diagnostic-field assertion (fallback branches must land in meta)
+
+- When Guard #2 / #3 fires, `meta["sentiment_st_trace"]` is populated with `{"constant_trap_synthetic": True, "synthetic_reason": ...}`; the upstream `[S_t]` console line also prints `trace=...` at the tail. Audits **must** consult both to decide whether S_t is a synthetic fallback.
+- The `alpha/beta/gamma/H` echoed by `[S_t:params]` at function entry must match `meta["sentiment_st_kernel"]`; any mismatch means the upstream and downstream ran **different Python processes / bytecode caches** — clear `__pycache__` and restart immediately.
+
 ---
 
 ## 7. Consistency check (reproducible verification steps)
@@ -168,6 +180,7 @@ See **`Figure2.1-Res.md` §6.2～§6.4**.
 - **Scalar/sequential dual calibers are easily misunderstood**: The most conspicuous one on the picture is `st_last`, but the state machine uses `st_min`; audit must be based on `st_min`.
 - **Time resolution limitations of MVP exponential kernel**: `penalty` and `severity_boost` are still calculated once for the entire window and added to each day in the form of a constant; single keyword events will not show a "pulse → decay" shape in this MVP version, and will only be reflected as a baseline offset. The advanced version (subsequent work) will also perform exponential kernel smoothing on penalty.
 - **Half-life H is a hyperparameter**: too short → the historical memory weight decays rapidly, and S_t is close to the noise of VADER on the day; too long → the impact of the event lasts too long and is not robust to short noise. v3.1 defaults to H=2 calendar days (short-term, amplified daily volatility); adjust via `DefensePolicyConfig.sentiment_halflife_days`, use H=7 or H=14 for slower events.
+- **Synthetic fallback is not real signal**: the `tanh(fallback + γ(P+B)) + sine jitter` emitted when Guard #2 fires is a visible deterministic placeholder and **does not represent actual sentiment**. Audits must check `meta["sentiment_st_trace"]["synthetic_reason"]`; any `no_headlines_in_extended_warmup` / `kernel_output_near_constant` value should trigger a review of headline ingestion and the date window.
 
 ---
 
