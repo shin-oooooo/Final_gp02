@@ -13,9 +13,7 @@ python -c "import api.main; print('[lreport] api.main import ok')" || {
 
 # Kronos weights presence check — surfaces LFS/pointer errors immediately in HF
 # logs rather than waiting for the first /api/analyze request to blow up.
-python - <<'PY' || {
-  echo "[lreport] WARN: Kronos weights not ready; continuing (phase2 will fall back to non-Kronos models)"
-}
+if ! python - <<'PY'
 from kronos_predictor import kronos_parameters_available
 if kronos_parameters_available():
     print("[lreport] kronos weights ok (model + tokenizer .safetensors present)")
@@ -23,6 +21,9 @@ if kronos_parameters_available():
 print("[lreport] kronos weights NOT READY — check kronos_weights/kronos-small + tokenizer-base LFS state")
 raise SystemExit(1)
 PY
+then
+  echo "[lreport] WARN: Kronos weights not ready; continuing (phase2 will fall back to non-Kronos models)"
+fi
 
 # News-fetch cache seed check — on HF we replay the committed snapshot instead
 # of running live Crawl4AI / RSS fetches (see research/sentiment/sources_cache.py).

@@ -1,3 +1,13 @@
+---
+title: Final_gp02 — AIE1902 研究管线 + Dash 仪表盘
+emoji: 📊
+colorFrom: gray
+colorTo: blue
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # AIE1902 Final Project — 研究管线 + Web 仪表盘
 
 > **课程 / 项目**：AIE1902 — 多资产防御性投资研究框架（Phase 0–4）
