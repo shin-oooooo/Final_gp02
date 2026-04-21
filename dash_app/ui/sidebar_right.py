@@ -86,7 +86,7 @@ def sidebar_right_column() -> dbc.Col:
         [
             html.Div(
                 className="sidebar-scroll-inner sidebar2-scroll-inner",
-                style={"overflowY": "auto", "height": "100vh"},
+                style={"overflowY": "auto", "height": "100%"},
                 children=[
                     # FigX.1: S_t（由原主栏 Figure3.1 迁入）
                     dbc.Card([
@@ -218,5 +218,5 @@ def sidebar_right_column() -> dbc.Col:
         ],
         xs=12, md=5, lg=5,
         className="mb-0 order-2 order-lg-2 sidebar2-col dash-three-col",
-        style={"overflowY": "auto", "height": "100vh"},
+        style={"overflowY": "auto", "height": "100%"},
     )
